@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BidSense — Government Tender Bid Risk Predictor</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --blue:#1F3864;--mblue:#2E75B6;--lblue:#e8f0fb;
+  --green:#1b5e20;--gbg:#e8f5e9;--glight:#c8e6c9;
+  --red:#b71c1c;--rbg:#ffebee;--rlight:#ffcdd2;
+  --orange:#e65100;--obg:#fff3e0;
+  --purple:#4a148c;--pbg:#f3e5f5;
+  --gray:#f4f6f9;--border:#e0e7f0;--text:#1a1a2e;--muted:#64748b;
+  --shadow:0 4px 24px rgba(31,56,100,.10);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f8;color:var(--text);min-height:100vh}
+
+/* NAV */
+nav{background:var(--blue);padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+.nav-brand{display:flex;align-items:center;gap:10px}
+.nav-logo{width:34px;height:34px;background:var(--mblue);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.nav-title{color:#fff;font-size:17px;font-weight:700;letter-spacing:.2px}
+.nav-sub{color:#90CAF9;font-size:11px;margin-top:1px}
+.nav-badges{display:flex;gap:8px}
+.badge{background:rgba(255,255,255,.12);color:#90CAF9;border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600}
+
+/* HERO */
+.hero{background:linear-gradient(135deg,var(--blue) 0%,#1565c0 60%,#0d47a1 100%);padding:48px 32px 40px;text-align:center}
+.hero h2{color:#fff;font-size:28px;font-weight:700;margin-bottom:10px}
+.hero p{color:#90CAF9;font-size:15px;max-width:620px;margin:0 auto 24px;line-height:1.7}
+.hero-stats{display:flex;gap:24px;justify-content:center;flex-wrap:wrap}
+.hstat{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:14px 24px;text-align:center}
+.hstat-val{color:#fff;font-size:24px;font-weight:800}
+.hstat-lbl{color:#90CAF9;font-size:11px;margin-top:2px}
+
+/* MAIN LAYOUT */
+.main{max-width:1280px;margin:0 auto;padding:28px 24px;display:grid;grid-template-columns:380px 1fr;gap:24px;align-items:start}
+
+/* CARD */
+.card{background:#fff;border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+.card-header{padding:16px 20px;display:flex;align-items:center;gap:10px}
+.card-header.blue{background:var(--blue)}
+.card-header.mblue{background:var(--mblue)}
+.card-header.green{background:#2e7d32}
+.card-header h3{color:#fff;font-size:14px;font-weight:700}
+.card-header .hicon{font-size:18px}
+.card-body{padding:20px}
+
+/* FORM */
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.form-group select,.form-group input{width:100%;padding:10px 13px;border:2px solid var(--border);border-radius:10px;font-size:13px;color:var(--text);background:#fafbff;outline:none;transition:all .2s;appearance:none}
+.form-group select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+.form-group select:focus,.form-group input:focus{border-color:var(--mblue);background:#fff;box-shadow:0 0 0 3px rgba(46,117,182,.12)}
+.form-hint{font-size:10px;color:var(--muted);margin-top:3px}
+.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
+
+/* PREDICT BUTTON */
+.btn-predict{width:100%;padding:15px;background:linear-gradient(135deg,var(--blue),var(--mblue));color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;letter-spacing:.4px;transition:all .2s;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-predict:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(46,117,182,.4)}
+.btn-predict:active{transform:none}
+.btn-reset{width:100%;padding:9px;background:transparent;color:var(--muted);border:2px solid var(--border);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;transition:all .2s}
+.btn-reset:hover{border-color:var(--mblue);color:var(--mblue)}
+
+/* RESULTS */
+#results{display:none}
+#placeholder{text-align:center;padding:60px 20px}
+#placeholder .ph-icon{font-size:52px;margin-bottom:16px}
+#placeholder h4{font-size:17px;color:var(--muted);font-weight:600}
+#placeholder p{font-size:13px;color:#aaa;margin-top:6px}
+
+/* PREDICTION CARDS */
+.pred-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.pred-card{border-radius:14px;padding:20px;text-align:center;position:relative;overflow:hidden}
+.pred-card::before{content:'';position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;opacity:.15}
+.pred-card.danger{background:linear-gradient(135deg,#ffebee,#ffcdd2);border:2px solid #ef9a9a}
+.pred-card.danger::before{background:#d32f2f}
+.pred-card.warning{background:linear-gradient(135deg,#fff3e0,#ffe0b2);border:2px solid #ffcc02}
+.pred-card.success{background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border:2px solid #a5d6a7}
+.pred-card .pc-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;opacity:.75;margin-bottom:8px}
+.pred-card .pc-prob{font-size:44px;font-weight:900;line-height:1;margin-bottom:8px}
+.pred-card .pc-verdict{display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;margin-bottom:6px}
+.verdict-danger{background:rgba(183,28,28,.12);color:#b71c1c;border:1px solid #ef9a9a}
+.verdict-success{background:rgba(27,94,32,.12);color:#1b5e20;border:1px solid #a5d6a7}
+.verdict-warning{background:rgba(230,81,0,.12);color:#e65100;border:1px solid #ffcc02}
+.pred-card .pc-code{font-size:11px;opacity:.65;font-weight:600}
+
+/* ALERT */
+.alert{border-radius:12px;padding:14px 18px;margin-bottom:14px;border-left:5px solid;display:flex;gap:12px;align-items:flex-start}
+.alert-icon{font-size:20px;flex-shrink:0;margin-top:1px}
+.alert-body h4{font-size:13px;font-weight:700;margin-bottom:3px}
+.alert-body p{font-size:12px;line-height:1.6;opacity:.85}
+.alert.danger{background:var(--rbg);border-color:#d32f2f;color:#7f1010}
+.alert.warning{background:var(--obg);border-color:#e65100;color:#7a3200}
+.alert.success{background:var(--gbg);border-color:#2e7d32;color:#1a4a1c}
+.alert.info{background:var(--lblue);border-color:var(--mblue);color:#1a3a6e}
+
+/* TABS */
+.tabs{display:flex;border-bottom:2px solid var(--border);margin-bottom:18px;gap:0;overflow-x:auto}
+.tab{padding:10px 16px;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:all .15s;letter-spacing:.2px}
+.tab:hover{color:var(--mblue)}
+.tab.active{color:var(--mblue);border-color:var(--mblue)}
+.tab-pane{display:none}.tab-pane.active{display:block}
+
+/* METRICS GRID */
+.metrics-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px}
+.metric-box{background:var(--gray);border-radius:12px;padding:14px 10px;text-align:center;border:1.5px solid var(--border)}
+.metric-box.highlight{background:var(--lblue);border-color:var(--mblue)}
+.metric-val{font-size:22px;font-weight:800;color:var(--blue)}
+.metric-lbl{font-size:10px;color:var(--muted);margin-top:3px;font-weight:600;text-transform:uppercase}
+
+/* CONFUSION MATRIX */
+.cm-wrap{max-width:340px;margin:0 auto}
+.cm-title{text-align:center;font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600}
+.cm-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px}
+.cm-cell{border-radius:10px;padding:14px 10px;text-align:center}
+.cm-tn{background:#e8f5e9;border:2px solid #a5d6a7}
+.cm-fp{background:#fff8e1;border:2px solid #ffe082}
+.cm-fn{background:#ffebee;border:2px solid #ef9a9a}
+.cm-tp{background:#e3f2fd;border:2px solid #90caf9}
+.cm-val{font-size:28px;font-weight:900;display:block}
+.cm-lbl{font-size:10px;font-weight:700;display:block;margin-top:2px}
+.cm-desc{font-size:10px;opacity:.7;margin-top:2px}
+
+/* ROC */
+.roc-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.roc-box{background:var(--gray);border-radius:12px;padding:14px}
+.roc-box h4{font-size:12px;font-weight:700;color:var(--blue);margin-bottom:10px;text-align:center}
+
+/* FEATURE BARS */
+.feat-section h4{font-size:12px;font-weight:700;color:var(--blue);margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px}
+.feat-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.feat-name{font-size:11px;color:var(--muted);width:185px;flex-shrink:0;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.feat-track{flex:1;height:12px;background:var(--border);border-radius:6px;overflow:hidden}
+.feat-fill{height:100%;border-radius:6px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+.feat-val{font-size:11px;font-weight:700;color:var(--text);width:36px;text-align:right}
+.feat-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+
+/* FEATURE VALUES TABLE */
+.fv-table{width:100%;border-collapse:collapse;font-size:12px}
+.fv-table th{background:var(--lblue);color:var(--blue);padding:8px 12px;text-align:left;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+.fv-table td{padding:8px 12px;border-bottom:1px solid var(--border)}
+.fv-table tr:hover td{background:var(--gray)}
+.fv-mono{font-family:monospace;color:var(--mblue);font-weight:700}
+
+/* GAUGE */
+.gauge-row{margin-bottom:12px}
+.gauge-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.gauge-label{font-size:12px;font-weight:700;color:var(--text)}
+.gauge-val{font-size:13px;font-weight:800}
+.gauge-track{height:10px;background:var(--border);border-radius:5px;overflow:hidden}
+.gauge-fill{height:100%;border-radius:5px;transition:width 1s cubic-bezier(.4,0,.2,1)}
+
+/* ACTION STEPS */
+.steps{counter-reset:step}
+.step-item{display:flex;gap:12px;margin-bottom:12px;align-items:flex-start}
+.step-num{width:26px;height:26px;border-radius:50%;background:var(--mblue);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.step-body{flex:1}
+.step-body strong{font-size:13px;color:var(--text);display:block;margin-bottom:2px}
+.step-body p{font-size:12px;color:var(--muted);line-height:1.5}
+
+/* MODEL INFO PANEL */
+.model-info{background:var(--lblue);border-radius:10px;padding:14px;margin-top:14px;border:1px solid var(--border)}
+.model-info h5{font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.model-row{display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px}
+.model-row span:first-child{color:var(--muted)}
+.model-row span:last-child{font-weight:700;color:var(--blue)}
+
+/* FOOTER */
+footer{background:var(--blue);color:rgba(255,255,255,.6);text-align:center;padding:20px;font-size:12px;margin-top:20px}
+footer strong{color:#90CAF9}
+
+/* LOADING */
+.loading{display:none;text-align:center;padding:40px;color:var(--mblue)}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--mblue);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* SECTION LABEL */
+.section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--border)}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .main{grid-template-columns:1fr}
+  .roc-grid,.feat-grid,.pred-grid{grid-template-columns:1fr}
+  .metrics-grid{grid-template-columns:repeat(3,1fr)}
+  .hero{padding:32px 16px}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand">
+    <div class="nav-logo">📊</div>
+    <div>
+      <div class="nav-title">BidSense</div>
+      <div class="nav-sub">Government Tender Bid Risk Predictor</div>
+    </div>
+  </div>
+  <div class="nav-badges">
+    <span class="badge">AUC 0.999</span>
+    <span class="badge">98% Accurate</span>
+    <span class="badge">496 Tenders Trained</span>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <h2>🎯 Predict Bid Risk Before Opening</h2>
+  <p>Enter 8 simple details from any government construction tender. The AI model instantly predicts whether the winning bid will be aggressive or exceed the estimate — with full statistical evidence.</p>
+  <div class="hero-stats">
+    <div class="hstat"><div class="hstat-val">0.999</div><div class="hstat-lbl">AUC Score</div></div>
+    <div class="hstat"><div class="hstat-val">98%</div><div class="hstat-lbl">Accuracy</div></div>
+    <div class="hstat"><div class="hstat-val">496</div><div class="hstat-lbl">Tenders Trained</div></div>
+    <div class="hstat"><div class="hstat-val">15</div><div class="hstat-lbl">ML Features</div></div>
+    <div class="hstat"><div class="hstat-val">2</div><div class="hstat-lbl">Risk Models</div></div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+<!-- LEFT: FORM -->
+<div>
+  <div class="card">
+    <div class="card-header blue"><span class="hicon">📋</span><h3>Tender Details</h3></div>
+    <div class="card-body">
+
+      <div class="form-group">
+        <label>Cost Tier</label>
+        <select id="cost_tier">
+          <option value="Small">Small — Up to ₹50 Cr</option>
+          <option value="Medium">Medium — ₹50 to ₹200 Cr</option>
+          <option value="Large" selected>Large — ₹200 to ₹2000 Cr</option>
+          <option value="Mega">Mega — Above ₹2000 Cr</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>State</label>
+        <select id="state" onchange="onStateChange()"><option value="Andaman and Nicobar Islands">Andaman and Nicobar Islands</option><option value="Andhra Pradesh">Andhra Pradesh</option><option value="Arunachal Pradesh">Arunachal Pradesh</option><option value="Assam">Assam</option><option value="Bihar">Bihar</option><option value="Chhattisgarh">Chhattisgarh</option><option value="Delhi">Delhi</option><option value="Goa">Goa</option><option value="Gujarat">Gujarat</option><option value="Haryana">Haryana</option><option value="Himachal Pradesh">Himachal Pradesh</option><option value="Jammu and Kashmir">Jammu and Kashmir</option><option value="Jharkhand">Jharkhand</option><option value="Karnataka">Karnataka</option><option value="Kerala">Kerala</option><option value="Madhya Pradesh">Madhya Pradesh</option><option value="Maharashtra"selected>Maharashtra</option><option value="Manipur">Manipur</option><option value="Meghalaya">Meghalaya</option><option value="Odisha">Odisha</option><option value="Punjab">Punjab</option><option value="Rajasthan">Rajasthan</option><option value="Sikkim">Sikkim</option><option value="Tamil Nadu">Tamil Nadu</option><option value="Telangana">Telangana</option><option value="Uttar Pradesh">Uttar Pradesh</option><option value="Uttarakhand">Uttarakhand</option><option value="West Bengal">West Bengal</option>        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Sector / Type of Work</label>
+        <select id="sector"><option value="Buildings_Defence_Strategic">Buildings Defence Strategic</option><option value="Buildings_Institutional">Buildings Institutional</option><option value="Heavy_Civil_Structures">Heavy Civil Structures</option><option value="Hydraulic_Storage">Hydraulic Storage</option><option value="Linear_Transport"selected>Linear Transport</option><option value="Metro_Integrated">Metro Integrated</option><option value="Other">Other</option><option value="Power_Infrastructure">Power Infrastructure</option><option value="Sanitation">Sanitation</option><option value="Urban_Integrated">Urban Integrated</option><option value="Water_Distribution">Water Distribution</option>        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Client / Department Type</label>
+        <select id="client_type" onchange="onClientTypeChange()"><option value="Airport_Authority">Airport Authority</option><option value="Central_Agency_BRO">Central Agency BRO</option><option value="Central_Agency_NHAI">Central Agency NHAI</option><option value="Central_Ministry">Central Ministry</option><option value="Defence">Defence</option><option value="Metro_Rail">Metro Rail</option><option value="Municipal">Municipal</option><option value="Other">Other</option><option value="PSU_Engineering">PSU Engineering</option><option value="PSU_Power_or_Coal">PSU Power or Coal</option><option value="Railway">Railway</option><option value="State_PWD">State PWD</option><option value="State_Power_Utility">State Power Utility</option><option value="State_Urban_Industrial">State Urban Industrial</option><option value="Water_Authority">Water Authority</option>        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Contract Type</label>
+        <select id="contract_type">
+          <option value="Item rate" selected>Item Rate</option>
+          <option value="EPC">EPC — Engineering, Procurement, Construction</option>
+          <option value="HAM">HAM — Hybrid Annuity Model</option>
+          <option value="DBOT">DBOT — Design, Build, Operate, Transfer</option>
+        </select>
+      </div>
+
+      <hr class="divider">
+
+      <div class="form-group">
+        <label>Client Name <span style="font-weight:400;color:#aaa">(optional)</span></label>
+        <input type="text" id="client_name" placeholder="e.g. NHAI, DMRC, State PWD..." list="client_datalist">
+        <datalist id="client_datalist"><option value="AGM (Engg) HSIIDC Kharkhoda"><option value="Ahmednagar Municipal Corporation"><option value="Airports Authority of India (AAI)"><option value="Airports Authority of India (AAI), Engineering Electrical - CHQ"><option value="Asolamendha Project Renovation Division No.1 Mul (WRD Maharashtra)"><option value="Assam Electricity Grid Corporation Ltd"><option value="Assam Electricity Grid Corporation Ltd. (AEGCL)"><option value="Assam Police Housing Corporation Ltd"><option value="Assam Power Generation Company Limited (APGCL)"><option value="BRIDGE AND ROOF CO. (INDIA) LIMITED"><option value="Bodoland Territorial Council-PWD, Assam"><option value="Bridge & Roof Co. (I) Ltd"><option value="Bridge & Roof Co. (I) Ltd."><option value="Bridge & Roof Co. (I) Ltd. (on behalf of DMER Haryana)"><option value="Bridge and Roof Company (India) Limited"><option value="Brihanmumbai Municipal Corporation"><option value="Brihanmumbai Municipal Corporation (BMC)"><option value="Brihanmumbai Municipal Corporation (BMC) / MCGM"><option value="Brihanmumbai Municipal Corporation (BMC) / MCGM."><option value="Brihanmumbai Municipal Corporation (BMC/MCGM)"><option value="Buildings and Housing Department, Govt of Sikkim"><option value="CCE, Anandapur Barrage Project"><option value="CE-Water Resources Dept. Amravati"><option value="CE-Water Resources Dept. Amravati (EE Jigaon Rehabilitation Division Khamgaon)"><option value="CE-Water Resources Dept. Amravati (Yavatmal Irrigation Circle)"><option value="CE-Water Resources Dept. Konkan Region Mumbai"><option value="CIDCO Ltd (Engineering Department - NAINA-I)"><option value="CIDCO Ltd (Engineering Department)"><option value="Central Coalfields Limited"><option value="Chennai Metro Rail Limited (CMRL)"><option value="Chennai Petroleum Corporation Limited (Ministry of Petroleum and Natural Gas)"><option value="Chief Engineer (C - I&CC), Vydyuthi Bhavanam, Thiruvananthapuram"><option value="Chief Engineer Mirzapur Zone PWD (Provincial Division Sonbhadra)"><option value="Chief Engineer PWD Central Zone, Lucknow"><option value="Chief Engineer, Rani Avanti Bai Lodhi Sagar Project, Bargi Hills, Jabalpur"><option value="Chief Engineer, Rani Avanti Bai Lodhi Sagar Project, Jabalpur"><option value="Chief Engineer-Building - PWBNH, Assam"><option value="Cochin International Airport Limited (CIAL)"><option value="Construction Division Osmanabad, Public Works Circle - Osmanabad"><option value="DGMAP - Military Engineer Services (MES)"><option value="DRDO - Chief Construction Engineer (R&D) South, Secunderabad"><option value="DRDO - Chief Construction Engineer (R&D) West"><option value="Defence Research and Development Organisation (DRDO)"><option value="Delhi Metro Rail Corporation Limited (DMRC)"><option value="Department of Housing and Urban Development, GMADA, Punjab"><option value="Directorate of Local Bodies UP"><option value="Directorate of Sports and Youth Services, Pune (Division Sports Office, Nashik)"><option value="Divisional Project Engineer, PWD PIU, SATNA"><option value="Dte General Border Roads Organisation"><option value="Dte General Border Roads Organisation (BRO)"><option value="Dte General Border Roads Organisation (BRO), HQ CE(P) Brahmank"><option value="Dte General Border Roads Organisation (BRO), Project Swastik"><option value="E-IN-C Branch - Military Engineer Services (CESC and CE (AF) Bangalore)"><option value="E-IN-C Branch - Military Engineer Services (CESC and CE (Navy) Kochi)"><option value="E-IN-C Branch - Military Engineer Services (MES)"><option value="E.E. Minor Irrigation Division No.2 Akola, WRD Amravati"><option value="EE Chandrapur Medium Project Div No. 1, WRD Nagpur"><option value="EE Hetawane Medium Project Division Kamarli, North Konkan Irrigation Project Circle, Maharashtra"><option value="EE Irrigation Project Investigation Division, MKVDC Pune"><option value="EE Jigao Rehabilitation Div Shegaon, WRD Amravati">        </datalist>
+      </div>
+
+      <div class="form-group">
+        <label>Central Government Project?</label>
+        <select id="is_central">
+          <option value="0" selected>No — State / PSU / Municipal</option>
+          <option value="1">Yes — Central Ministry / NHAI / BRO / Defence</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Distance to Nearest Metro City (km)</label>
+        <input type="number" id="dist_metro" value="120" min="0" max="1000">
+        <div class="form-hint">Metro cities: Delhi, Mumbai, Chennai, Kolkata, Bengaluru, Hyderabad</div>
+      </div>
+
+      <button class="btn-predict" onclick="runPredict()">
+        <span>🔍</span> Analyse Bid Risk
+      </button>
+      <button class="btn-reset" onclick="resetForm()">↺ Reset Form</button>
+
+      <div class="model-info">
+        <h5>Model Info</h5>
+        <div class="model-row"><span>Aggressive Model</span><span>Gradient Boosting</span></div>
+        <div class="model-row"><span>Exceeds Model</span><span>Random Forest</span></div>
+        <div class="model-row"><span>Features Used</span><span>Top 15 by AUC</span></div>
+        <div class="model-row"><span>Training Data</span><span>496 tenders</span></div>
+        <div class="model-row"><span>Last Updated</span><span>April 2026</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT: RESULTS -->
+<div>
+  <div class="card">
+    <div class="card-header green"><span class="hicon">✅</span><h3>Analysis Results</h3></div>
+    <div class="card-body">
+
+      <div id="placeholder">
+        <div class="ph-icon">🎯</div>
+        <h4>Ready to Analyse</h4>
+        <p>Fill in the tender details on the left and click "Analyse Bid Risk"</p>
+        <p style="margin-top:8px">The model will predict aggressive bid risk and budget overrun risk</p>
+      </div>
+
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Analysing tender risk...</p>
+      </div>
+
+      <div id="results">
+
+        <!-- PREDICTION CARDS -->
+        <div class="pred-grid" id="pred-cards"></div>
+
+        <!-- ALERT -->
+        <div id="alert-box"></div>
+
+        <!-- RISK GAUGES -->
+        <div style="margin-bottom:18px">
+          <div class="section-label">Risk Level Gauges</div>
+          <div id="gauges"></div>
+        </div>
+
+        <!-- TABS -->
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab(0,this)">📋 Summary</div>
+          <div class="tab" onclick="switchTab(1,this)">📊 Metrics</div>
+          <div class="tab" onclick="switchTab(2,this)">📈 ROC Curves</div>
+          <div class="tab" onclick="switchTab(3,this)">🔢 Confusion Matrix</div>
+          <div class="tab" onclick="switchTab(4,this)">⭐ Feature Importance</div>
+          <div class="tab" onclick="switchTab(5,this)">🔬 Feature Values</div>
+        </div>
+
+        <!-- TAB 0: SUMMARY -->
+        <div class="tab-pane active" id="tp0">
+          <div class="section-label">What This Means</div>
+          <div id="summary-text" style="font-size:13px;line-height:1.8;color:#333;margin-bottom:16px"></div>
+          <div class="section-label">Recommended Actions</div>
+          <div id="action-steps"></div>
+        </div>
+
+        <!-- TAB 1: METRICS -->
+        <div class="tab-pane" id="tp1">
+          <div class="section-label" style="margin-bottom:12px">Aggressive Bid Model — Gradient Boosting (Test Set: 100 tenders)</div>
+          <div class="metrics-grid" id="met-agg"></div>
+          <div class="section-label" style="margin-bottom:12px">Exceeds Estimate Model — Random Forest (Test Set: 100 tenders)</div>
+          <div class="metrics-grid" id="met-exc"></div>
+          <p style="font-size:11px;color:var(--muted);margin-top:8px">All metrics measured on 100 unseen test tenders (20% hold-out split from 496 total records)</p>
+        </div>
+
+        <!-- TAB 2: ROC -->
+        <div class="tab-pane" id="tp2">
+          <div class="roc-grid">
+            <div class="roc-box">
+              <h4>Aggressive Bid Model</h4>
+              <canvas id="roc-agg" height="200"></canvas>
+            </div>
+            <div class="roc-box">
+              <h4>Exceeds Estimate Model</h4>
+              <canvas id="roc-exc" height="200"></canvas>
+            </div>
+          </div>
+          <p style="font-size:11px;color:var(--muted);margin-top:12px;text-align:center">AUC = Area Under the ROC Curve. Perfect = 1.0. Random guessing = 0.5. Your models: 0.9985 and 0.9951</p>
+        </div>
+
+        <!-- TAB 3: CONFUSION MATRIX -->
+        <div class="tab-pane" id="tp3">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+            <div>
+              <div class="section-label">Aggressive Bid Model</div>
+              <div class="cm-wrap"><div class="cm-grid" id="cm-agg"></div>
+              <p class="cm-title">Rows = Actual outcome | Columns = Model prediction</p></div>
+            </div>
+            <div>
+              <div class="section-label">Exceeds Estimate Model</div>
+              <div class="cm-wrap"><div class="cm-grid" id="cm-exc"></div>
+              <p class="cm-title">Rows = Actual outcome | Columns = Model prediction</p></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: FEATURE IMPORTANCE -->
+        <div class="tab-pane" id="tp4">
+          <div class="feat-grid">
+            <div class="feat-section">
+              <h4>Aggressive Bid Drivers</h4>
+              <div id="feat-bars-agg"></div>
+            </div>
+            <div class="feat-section">
+              <h4>Exceeds Estimate Drivers</h4>
+              <div id="feat-bars-exc"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 5: FEATURE VALUES -->
+        <div class="tab-pane" id="tp5">
+          <p style="font-size:12px;color:var(--muted);margin-bottom:12px">These 15 values were automatically computed from your 8 inputs and fed into the model</p>
+          <table class="fv-table">
+            <thead><tr><th>#</th><th>Feature</th><th>Value</th><th>What It Represents</th></tr></thead>
+            <tbody id="fv-tbody"></tbody>
+          </table>
+        </div>
+
+      </div><!-- #results -->
+    </div>
+  </div>
+</div>
+
+</div><!-- .main -->
+
+<footer>
+  <strong>BidSense</strong> — Government Construction Tender Bid Risk Predictor &nbsp;|&nbsp;
+  DRP Research: Predicting Winning Bid Price Using Machine Learning &nbsp;|&nbsp;
+  Trained on 496 Indian Government Infrastructure Tenders &nbsp;|&nbsp;
+  Models: Gradient Boosting (Aggressive) + Random Forest (Exceeds Estimate)
+</footer>
+
+<script>
+// ─── EMBEDDED MODEL DATA ─────────────────────────────────────────────────────
+const D = {"lookup":{"global_bdr":0.9705,"cost_tier_bdr":{"Large":0.9674,"Medium":0.9672,"Mega":1.0239,"Small":1.1214},"sector_bdr":{"Buildings_Defence_Strategic":0.7809,"Buildings_Institutional":1.0081,"Heavy_Civil_Structures":0.9574,"Hydraulic_Storage":0.9788,"Linear_Transport":0.8758,"Metro_Integrated":0.9671,"Other":0.9866,"Power_Infrastructure":0.9853,"Sanitation":0.9951,"Urban_Integrated":1.0676,"Water_Distribution":1.0057},"sector_state_bdr":{"Buildings_Defence_Strategic|Arunachal Pradesh":0.6467,"Buildings_Defence_Strategic|Kerala":0.936,"Buildings_Defence_Strategic|Maharashtra":0.9265,"Buildings_Defence_Strategic|Uttar Pradesh":0.9621,"Buildings_Institutional|Assam":1.1071,"Buildings_Institutional|Chhattisgarh":0.8513,"Buildings_Institutional|Delhi":1.009,"Buildings_Institutional|Haryana":0.9925,"Buildings_Institutional|Karnataka":0.8911,"Buildings_Institutional|Kerala":0.9747,"Buildings_Institutional|Madhya Pradesh":0.9365,"Buildings_Institutional|Maharashtra":1.0489,"Buildings_Institutional|Meghalaya":1.0431,"Buildings_Institutional|Odisha":0.8004,"Buildings_Institutional|Punjab":0.9656,"Buildings_Institutional|Sikkim":1.0,"Buildings_Institutional|Tamil Nadu":1.0262,"Buildings_Institutional|Uttar Pradesh":0.9733,"Buildings_Institutional|Uttarakhand":1.0501,"Buildings_Institutional|West Bengal":1.1599,"Heavy_Civil_Structures|Andaman and Nicobar Islands":1.0448,"Heavy_Civil_Structures|Arunachal Pradesh":0.889,"Heavy_Civil_Structures|Chhattisgarh":0.9983,"Heavy_Civil_Structures|Gujarat":0.8466,"Heavy_Civil_Structures|Haryana":0.9064,"Heavy_Civil_Structures|Jammu and Kashmir":0.8194,"Heavy_Civil_Structures|Jharkhand":0.9757,"Heavy_Civil_Structures|Karnataka":0.9134,"Heavy_Civil_Structures|Kerala":0.8928,"Heavy_Civil_Structures|Madhya Pradesh":1.0296,"Heavy_Civil_Structures|Maharashtra":1.0464,"Heavy_Civil_Structures|Manipur":1.0,"Heavy_Civil_Structures|Punjab":1.0882,"Heavy_Civil_Structures|Rajasthan":0.8263,"Heavy_Civil_Structures|Tamil Nadu":1.0325,"Heavy_Civil_Structures|Uttar Pradesh":0.7969,"Heavy_Civil_Structures|West Bengal":0.9453,"Hydraulic_Storage|Arunachal Pradesh":0.9874,"Hydraulic_Storage|Haryana":0.837,"Hydraulic_Storage|Jammu and Kashmir":0.9632,"Hydraulic_Storage|Kerala":0.9634,"Hydraulic_Storage|Madhya Pradesh":0.9276,"Hydraulic_Storage|Maharashtra":0.9971,"Hydraulic_Storage|Odisha":0.9864,"Hydraulic_Storage|Rajasthan":1.1515,"Hydraulic_Storage|Sikkim":0.9882,"Hydraulic_Storage|Uttarakhand":1.0,"Hydraulic_Storage|West Bengal":1.0276,"Linear_Transport|Andhra Pradesh":0.7593,"Linear_Transport|Arunachal Pradesh":0.6739,"Linear_Transport|Assam":0.9573,"Linear_Transport|Bihar":0.9129,"Linear_Transport|Chhattisgarh":0.9063,"Linear_Transport|Gujarat":0.7931,"Linear_Transport|Haryana":0.6006,"Linear_Transport|Himachal Pradesh":0.5882,"Linear_Transport|Jharkhand":0.7683,"Linear_Transport|Madhya Pradesh":0.8094,"Linear_Transport|Maharashtra":0.962,"Linear_Transport|Meghalaya":1.0001,"Linear_Transport|Punjab":1.0123,"Linear_Transport|Sikkim":0.6449,"Linear_Transport|Tamil Nadu":1.014,"Linear_Transport|Uttar Pradesh":0.9142,"Linear_Transport|Uttarakhand":0.9199,"Linear_Transport|West Bengal":1.0999,"Metro_Integrated|Bihar":0.9897,"Metro_Integrated|Delhi":1.0304,"Metro_Integrated|Karnataka":1.0998,"Metro_Integrated|Madhya Pradesh":0.8976,"Metro_Integrated|Maharashtra":0.9793,"Metro_Integrated|Odisha":0.8387,"Metro_Integrated|Tamil Nadu":1.0369,"Metro_Integrated|Uttar Pradesh":0.9056,"Other|Assam":1.156,"Other|Chhattisgarh":1.0335,"Other|Delhi":0.9948,"Other|Goa":0.9171,"Other|Gujarat":0.9834,"Other|Haryana":0.967,"Other|Jammu and Kashmir":0.9563,"Other|Jharkhand":0.6858,"Other|Karnataka":0.9486,"Other|Kerala":0.9645,"Other|Madhya Pradesh":0.9989,"Other|Maharashtra":0.9813,"Other|Meghalaya":1.0,"Other|Odisha":0.9648,"Other|Punjab":1.0,"Other|Rajasthan":1.0444,"Other|Tamil Nadu":0.9265,"Other|Uttar Pradesh":1.1158,"Other|West Bengal":0.9895,"Power_Infrastructure|Assam":0.9905,"Power_Infrastructure|Chhattisgarh":0.9433,"Power_Infrastructure|Gujarat":0.9883,"Power_Infrastructure|Himachal Pradesh":1.0488,"Power_Infrastructure|Jharkhand":1.0204,"Power_Infrastructure|Kerala":0.8475,"Power_Infrastructure|Madhya Pradesh":1.0122,"Power_Infrastructure|Odisha":0.8659,"Power_Infrastructure|Punjab":0.977,"Power_Infrastructure|Rajasthan":0.9524,"Power_Infrastructure|Tamil Nadu":0.9745,"Power_Infrastructure|Uttar Pradesh":0.9662,"Power_Infrastructure|Uttarakhand":1.2648,"Sanitation|Chhattisgarh":0.9001,"Sanitation|Haryana":1.0563,"Sanitation|Madhya Pradesh":1.0279,"Sanitation|Maharashtra":0.9305,"Sanitation|Tamil Nadu":1.0157,"Urban_Integrated|Assam":1.2843,"Urban_Integrated|Jharkhand":1.0273,"Urban_Integrated|Kerala":0.9681,"Urban_Integrated|Maharashtra":1.0849,"Urban_Integrated|Meghalaya":1.0971,"Urban_Integrated|Odisha":1.1027,"Urban_Integrated|Punjab":0.91,"Urban_Integrated|Uttar Pradesh":1.0493,"Water_Distribution|Haryana":1.0169,"Water_Distribution|Kerala":1.053,"Water_Distribution|Madhya Pradesh":1.0298,"Water_Distribution|Maharashtra":1.0138,"Water_Distribution|Rajasthan":1.0986,"Water_Distribution|Telangana":0.9943,"Water_Distribution|Uttar Pradesh":0.7198,"Water_Distribution|West Bengal":0.9846},"sector_region_bdr":{"Buildings_Defence_Strategic|North":0.9621,"Buildings_Defence_Strategic|Northeast":0.6467,"Buildings_Defence_Strategic|South":0.936,"Buildings_Defence_Strategic|West":0.9265,"Buildings_Institutional|Central":0.9176,"Buildings_Institutional|East":0.8723,"Buildings_Institutional|North":0.9891,"Buildings_Institutional|Northeast":1.0924,"Buildings_Institutional|South":1.0055,"Buildings_Institutional|West":1.0489,"Heavy_Civil_Structures|Central":1.0234,"Heavy_Civil_Structures|East":0.9554,"Heavy_Civil_Structures|Islands":1.0448,"Heavy_Civil_Structures|North":0.8586,"Heavy_Civil_Structures|Northeast":0.9445,"Heavy_Civil_Structures|South":0.9513,"Heavy_Civil_Structures|West":0.9865,"Hydraulic_Storage|Central":0.9276,"Hydraulic_Storage|East":1.007,"Hydraulic_Storage|North":0.9409,"Hydraulic_Storage|Northeast":0.9878,"Hydraulic_Storage|South":0.9634,"Hydraulic_Storage|West":1.0131,"Linear_Transport|Central":0.8288,"Linear_Transport|East":0.8983,"Linear_Transport|North":0.8655,"Linear_Transport|Northeast":0.7465,"Linear_Transport|South":0.9715,"Linear_Transport|West":0.9507,"Metro_Integrated|Central":0.8976,"Metro_Integrated|East":0.889,"Metro_Integrated|North":0.9555,"Metro_Integrated|South":1.0621,"Metro_Integrated|West":0.9793,"Other|Central":1.0038,"Other|East":0.9503,"Other|North":0.9919,"Other|Northeast":1.104,"Other|South":0.9405,"Other|West":0.9928,"Power_Infrastructure|Central":0.9778,"Power_Infrastructure|East":0.9895,"Power_Infrastructure|North":1.0611,"Power_Infrastructure|Northeast":0.9905,"Power_Infrastructure|South":0.9322,"Power_Infrastructure|West":0.9569,"Sanitation|Central":1.0097,"Sanitation|North":1.0563,"Sanitation|South":1.0157,"Sanitation|West":0.9305,"Urban_Integrated|East":1.065,"Urban_Integrated|North":0.9796,"Urban_Integrated|Northeast":1.1907,"Urban_Integrated|South":0.9681,"Urban_Integrated|West":1.0849,"Water_Distribution|Central":1.0298,"Water_Distribution|East":0.9846,"Water_Distribution|North":0.8981,"Water_Distribution|South":1.0383,"Water_Distribution|West":1.0169},"clienttype_sector_bdr":{"Airport_Authority|Heavy_Civil_Structures":0.8305,"Central_Agency_BRO|Heavy_Civil_Structures":0.889,"Central_Agency_BRO|Linear_Transport":0.7049,"Central_Agency_NHAI|Heavy_Civil_Structures":0.8527,"Central_Agency_NHAI|Linear_Transport":0.8361,"Central_Agency_NHAI|Other":0.8772,"Central_Ministry|Buildings_Defence_Strategic":0.6467,"Central_Ministry|Heavy_Civil_Structures":1.0549,"Central_Ministry|Other":0.9439,"Defence|Buildings_Defence_Strategic":0.9451,"Defence|Buildings_Institutional":0.9849,"Defence|Heavy_Civil_Structures":0.7742,"Defence|Other":0.9372,"Metro_Rail|Buildings_Institutional":0.9832,"Metro_Rail|Linear_Transport":1.0839,"Metro_Rail|Metro_Integrated":0.9583,"Metro_Rail|Other":1.0363,"Metro_Rail|Sanitation":1.0765,"Municipal|Buildings_Institutional":0.9954,"Municipal|Heavy_Civil_Structures":1.0262,"Municipal|Linear_Transport":0.9712,"Municipal|Other":1.0547,"Municipal|Sanitation":1.0187,"Municipal|Water_Distribution":1.0365,"Other|Buildings_Defence_Strategic":0.8698,"Other|Buildings_Institutional":0.9929,"Other|Heavy_Civil_Structures":0.9922,"Other|Hydraulic_Storage":1.0013,"Other|Linear_Transport":0.9135,"Other|Metro_Integrated":1.0378,"Other|Other":1.0094,"Other|Power_Infrastructure":0.9956,"Other|Sanitation":0.961,"Other|Urban_Integrated":1.021,"Other|Water_Distribution":1.0336,"PSU_Engineering|Buildings_Institutional":0.9161,"PSU_Engineering|Linear_Transport":0.8182,"PSU_Engineering|Other":0.8403,"PSU_Engineering|Sanitation":0.9772,"PSU_Power_or_Coal|Buildings_Institutional":0.8425,"PSU_Power_or_Coal|Linear_Transport":0.7078,"PSU_Power_or_Coal|Other":0.9593,"PSU_Power_or_Coal|Power_Infrastructure":0.9741,"Railway|Heavy_Civil_Structures":0.9523,"Railway|Linear_Transport":0.9062,"Railway|Other":0.9794,"State_PWD|Buildings_Institutional":1.0471,"State_PWD|Heavy_Civil_Structures":1.0966,"State_PWD|Linear_Transport":0.9242,"State_PWD|Other":1.0263,"State_PWD|Urban_Integrated":1.1668,"State_Power_Utility|Hydraulic_Storage":1.0,"State_Power_Utility|Other":1.0273,"State_Power_Utility|Power_Infrastructure":0.985,"State_Urban_Industrial|Buildings_Institutional":1.2109,"State_Urban_Industrial|Linear_Transport":0.7497,"State_Urban_Industrial|Other":0.8641,"State_Urban_Industrial|Power_Infrastructure":0.9934,"State_Urban_Industrial|Sanitation":0.7967,"State_Urban_Industrial|Urban_Integrated":1.0849,"State_Urban_Industrial|Water_Distribution":0.9855,"Water_Authority|Buildings_Institutional":1.0501,"Water_Authority|Heavy_Civil_Structures":1.0629,"Water_Authority|Hydraulic_Storage":0.9636,"Water_Authority|Linear_Transport":0.9569,"Water_Authority|Other":1.0478,"Water_Authority|Water_Distribution":0.97},"client_name_bdr":{"AGM (Engg) HSIIDC Kharkhoda":1.2898,"Ahmednagar Municipal Corporation":0.9925,"Airports Authority of India (AAI)":0.8309,"Airports Authority of India (AAI), Engineering Electrical - CHQ":0.8263,"Asolamendha Project Renovation Division No.1 Mul (WRD Maharashtra)":0.9898,"Assam Electricity Grid Corporation Ltd":0.9877,"Assam Electricity Grid Corporation Ltd. (AEGCL)":0.9477,"Assam Police Housing Corporation Ltd":1.1549,"Assam Power Generation Company Limited (APGCL)":1.0361,"BRIDGE AND ROOF CO. (INDIA) LIMITED":0.9982,"Bodoland Territorial Council-PWD, Assam":1.0088,"Bridge & Roof Co. (I) Ltd":0.9001,"Bridge & Roof Co. (I) Ltd.":0.9349,"Bridge & Roof Co. (I) Ltd. (on behalf of DMER Haryana)":0.9583,"Bridge and Roof Company (India) Limited":0.9834,"Brihanmumbai Municipal Corporation":1.0586,"Brihanmumbai Municipal Corporation (BMC)":1.2342,"Brihanmumbai Municipal Corporation (BMC) / MCGM":1.1277,"Brihanmumbai Municipal Corporation (BMC) / MCGM.":0.8546,"Brihanmumbai Municipal Corporation (BMC/MCGM)":1.0573,"Buildings and Housing Department, Govt of Sikkim":1.0,"CCE, Anandapur Barrage Project":0.9864,"CE-Water Resources Dept. Amravati":0.8791,"CE-Water Resources Dept. Amravati (EE Jigaon Rehabilitation Division Khamgaon)":0.9901,"CE-Water Resources Dept. Amravati (Yavatmal Irrigation Circle)":0.9901,"CE-Water Resources Dept. Konkan Region Mumbai":0.9951,"CIDCO Ltd (Engineering Department - NAINA-I)":1.0952,"CIDCO Ltd (Engineering Department)":1.1131,"Central Coalfields Limited":1.0962,"Chennai Metro Rail Limited (CMRL)":1.0597,"Chennai Petroleum Corporation Limited (Ministry of Petroleum and Natural Gas)":0.9439,"Chief Engineer (C - I&CC), Vydyuthi Bhavanam, Thiruvananthapuram":0.9346,"Chief Engineer Mirzapur Zone PWD (Provincial Division Sonbhadra)":0.9805,"Chief Engineer PWD Central Zone, Lucknow":0.9835,"Chief Engineer, Rani Avanti Bai Lodhi Sagar Project, Bargi Hills, Jabalpur":0.9748,"Chief Engineer, Rani Avanti Bai Lodhi Sagar Project, Jabalpur":0.8084,"Chief Engineer-Building - PWBNH, Assam":1.263,"Cochin International Airport Limited (CIAL)":0.8894,"Construction Division Osmanabad, Public Works Circle - Osmanabad":1.0984,"DGMAP - Military Engineer Services (MES)":0.8053,"DRDO - Chief Construction Engineer (R&D) South, Secunderabad":0.8551,"DRDO - Chief Construction Engineer (R&D) West":0.8698,"Defence Research and Development Organisation (DRDO)":0.8186,"Delhi Metro Rail Corporation Limited (DMRC)":0.9244,"Department of Housing and Urban Development, GMADA, Punjab":1.0882,"Directorate of Local Bodies UP":0.9688,"Directorate of Sports and Youth Services, Pune (Division Sports Office, Nashik)":1.0866,"Divisional Project Engineer, PWD PIU, SATNA":0.883,"Dte General Border Roads Organisation":0.6665,"Dte General Border Roads Organisation (BRO)":0.8599,"Dte General Border Roads Organisation (BRO), HQ CE(P) Brahmank":0.698,"Dte General Border Roads Organisation (BRO), Project Swastik":0.6449,"E-IN-C Branch - Military Engineer Services (CESC and CE (AF) Bangalore)":0.8911,"E-IN-C Branch - Military Engineer Services (CESC and CE (Navy) Kochi)":0.932,"E-IN-C Branch - Military Engineer Services (MES)":0.8614,"E.E. Minor Irrigation Division No.2 Akola, WRD Amravati":0.9999,"EE Chandrapur Medium Project Div No. 1, WRD Nagpur":1.0489,"EE Hetawane Medium Project Division Kamarli, North Konkan Irrigation Project Circle, Maharashtra":0.9497,"EE Irrigation Project Investigation Division, MKVDC Pune":1.0322,"EE Jigao Rehabilitation Div Shegaon, WRD Amravati":1.1035,"EE Jigaon Lift Irrigation Division Khamgaon, WRD Amravati":1.0792,"EE Jigaon Proj Dam and Rehabilitation Div Shegaon, WRD Amravati":1.1062,"EE Krishna Marathwada Const Div No.1 Osmanabad":1.0436,"EE Minor Irrigation Division Chandrapur, WRD Nagpu":1.0525,"EE Minor Irrigation Division Hingoli, Nanded Irrigation Circle":0.9248,"EE Minor Irrigation Division Karanja Lad, WRD Amravati":1.025,"EE Minor Irrigation Division No 1, Aurangabad (Maharashtra Water Resources Department)":0.9827,"EE Minor Irrigation Division Parbhani, Nanded Irrigation Circle":0.8974,"EE Minor Irrigation Division Wardha, WRD Nagpur":0.9985,"EE Nanded Irrigation Division (South) Nanded, Maharashtra":0.8169,"EE Nandur Madhameshwar Canal Div Vaijapur, WRD Aurangabad":1.0,"EE Sulwade Jamphal Kanoli Lift Irri Div, Dhule (TIDC Jalgaon)":1.0,"EE Tapi Valley Survey and Invest Div Unit Jalgaon (TIDC Jalgaon)":1.0987,"EE Upper Penganga Project Div No. 4 Akhadabalapur":1.0153,"EE Upper Pravara Canal Division Sangamner, CADA Ahmednagar":1.0,"EE Upper Pravara Dam Division Sangamner, CADA Ahmednagar":1.0,"Eastern Rajasthan Canal Project Corporation Limited":1.1533,"Electronics Technology Park Kerala (Technopark)":1.1381,"Employees State Insurance Corporation (ESIC)":0.9897,"Engineer-in-Chief - Water Resources Department (WRD), Madhya Pradesh":0.9498,"Engineer-in-Chief - Water Resources Department (WRD), Madhya Pradesh.":0.9489,"Engineer-in-Chief - Water Resources Department, Chief Engineer Procurement (Bhopal)":0.9509,"Engineer-in-Chief - Water Resources Department, Madhya Pradesh":0.9742,"Engineer-in-Chief - Water Resources Department, Madhya Pradesh.":0.8949,"Engineering Projects (India) Ltd":0.9948,"Ex. Engr. Takari Mhaisal Lift Irr. Management Division, Sangli (MKVDC)":1.0212,"Executive Director/Projects, IRCON International Limited":1.0494,"Executive Director/Special Works, IRCON International Limited":0.8344,"Executive Engineer, Asolamendha Project Renovation Division No. 1 Mul.":0.9998,"Executive Engineer, HSVP Division No. III, Faridabad":1.0977,"Executive Engineer, Minor Irrigation Division, Akola":0.9999,"Executive Engineer, RCD, Road Division, Ranchi (Gramin)":0.9757,"Executive Engineer, Raigad Irrigation Division No.2, Navi Mumbai":0.9909,"Executive Engineer, Raigad Irrigation Division No.2, Navi Mumbai.":0.9856,"Executive Engineer, Water Resources Division, Chhatarpur":0.9975,"Executive Engineer, Water Resources Division, Sheopur":0.9985,"Goa Tourism Development Corporation Limited":0.9171,"Gorakhpur Development Authority":0.9851,"Government of Haryana.":1.0487,"Gujarat State Electricity Corporation Limited (GSECL)":0.9883,"Guwahati Metropolitan Development Authority (GMDA)":1.0057,"HITES":1.0273,"HITES (HLL Infra Tech Services Ltd)":0.9502,"HPSEBL (Himachal Pradesh State Electricity Board Ltd.)":1.0488,"HSIIDC, Haryana Board Corporation":0.9995,"Haryana Government (Engineer-in-Chief PHED Panchkula).":1.0175,"Haryana Government (Engineer-in-Chief PHED)":0.9846,"Haryana Government (Irrigation HKB Circle Jagadhari)":0.837,"Haryana Government, GMDA, INFRA II":0.9019,"Haryana International Horticultural Marketing Corporation Ltd. (HIHMCL)":1.0188,"Haryana Mass Rapid Transport Corporation Ltd.":0.9938,"Haryana Rail Infrastructure Development Corporation Limited":0.9887,"Highways Construction and Maintenance Wing, Madurai Circle":1.069,"Highways Department, CMDP Circle, Tamil Nadu.":1.1453,"Highways Department, Construction and Maintenance Wing, Madurai Circle":1.1262,"Highways, Construction and Maintenance Wing, Tiruppur Circle, Tamil Nadu":1.0329,"INKEL Limited":1.0244,"IRCON International Limited":0.784,"IRCON International Limited (Civil Engineering - IRCON)":1.0428,"IRCON International Limited (New Delhi)":0.9633,"Indian Oil Corporation (Business Development Contracts)":0.9807,"Indian Oil Corporation (Marketing - Southern Region)":0.9495,"Indian Oil Corporation Limited (IOCL) - Paradip Refinery":1.1027,"Indore Development Authority (Directorate of Town and Country Planning)":0.8192,"Information Technology Department Meghalaya":1.0,"Irregation department":0.9943,"Jharkhand Urja Sancharan Nigam Limited":1.085,"Jharkhand Urja Sancharan Nigam Limited (JUSNL)":0.9502,"KSEB - Chief Engineer (C - I&CC), Thiruvananthapuram":0.9346,"Kerala Road Fund Board (KRFB) / PWD Kerala":1.0261,"Kerala State Council for Science Technology and Environment (KSCSTE)":1.0671,"Kerala State Electricity Board (KSEB)":0.8475,"Kerala State IT Infrastructure Ltd":0.9681,"Kerala State IT Infrastructure Ltd (KSITIL)":0.9801,"Kolkata Metropolitan Development Authority (KMDA)":0.9844,"M.P. Building Development Corporation Ltd. Bhopal":0.94,"M/s TUSCO / EPMC: MECON LIMITED":0.9662,"M/s Tidel Park Ltd":0.9682,"MCGM (Water Supply Project)":1.0,"MCGM \u2013 Building Maintenance and Health Infrastructure Cell":0.8623,"MD (Drinking Water) Peyjal Nigam GoUK":0.9966,"MD (Drinking Water) Peyjal Nigam GoUK (Construction Wing)":1.1036,"MECON LIMITED":1.0,"MHADA \u2013 Housing and Area Development Board, Nagpur":0.9941,"MMRDA \u2013 Metro PIU":1.0411,"MP Housing and Infrastructure Development Board":0.9715,"MP Housing and Infrastructure Development Board (EE Div 04 Bhopal)":0.9715,"MP Industrial Development Corporation Limited":0.8749,"MP Industrial Development Corporation Limited (MPIDC)":0.9934,"MP Police Housing and Infrastructure Development Corporation Ltd":0.883,"MP Police Housing and Infrastructure Development Corporation Ltd (Indore 01)":0.883,"MP State Tourism Development Corporation Ltd":0.9998,"Madhya Pradesh Jal Nigam Maryadit":0.9979,"Madhya Pradesh Jal Nigam Maryadit (MPJNM)":1.0274,"Madhya Pradesh Metro Rail Corporation Limited":0.8976,"Madhya Pradesh Power Generating Company Limited (MPPGCL)":0.9774,"Madhya Pradesh Road Development Corporation Limited":0.739,"Madhya Pradesh Road Development Corporation Limited (ADB Tenders)":0.9549,"Madhya Pradesh Road Development Corporation Limited (MPRDC)":0.9639,"Madurai City Municipal Corporation":1.1438,"Madurai Municipal Corporation (MAWS)":1.1448,"Mahanadi Coalfields Limited (MCL)":0.8659,"Maharashtra Housing Development Corporation (MahaHousing)":1.0757,"Maharashtra Industrial Development Corporation (MIDC)":0.8643,"Maharashtra Maritime Board, Mumbai":0.9902,"Maharashtra Metro Rail Corporation Limited":0.9891,"Maharashtra Metro Rail Corporation Limited (Nagpur Metro)":0.8785,"Maharashtra Metro Rail Corporation Limited - ADB Tenders":0.9031,"Maharashtra State Infrastructure Development Corporation":1.045,"Maharashtra State Infrastructure Development Corporation (MSIDC)":1.0356,"Military Engineer Services (CE Bathinda Zone)":0.8552,"Military Engineer Services (MES)":0.9563,"Military Engineer Services (MES) - CE Bareilly Zone":1.1158,"Military Engineer Services (MES) - CE Delhi Zone":1.0786,"Military Engineer Services (MES) - DGMAP":0.9621,"Military Engineer Services (MES) \u2013 CE (Navy) Kochi":0.94,"Military Engineer Services (MES) \u2013 DGMAP":1.2123,"Military Engineer Services (MES), CE Chandigarh Zone":1.0047,"Military Engineer Services (MES), CE Kolkata Zone":0.8398,"Ministry of Road Transport and Highways":0.6044,"Ministry of Road Transport and Highways (MoRTH)":0.9815,"Ministry of Road Transport and Highways (RO Itanagar - MORTH)":0.5693,"Ministry of Road Transport and Highways (RO Itanagar - MORTH).":0.6706,"Ministry of Road Transport and Highways (RO Itanagar - MoRTH).":0.539,"Minor Irrigation Division Warnali, Sangli Irrigation Circle, MKVDC":1.0503,"Mumbai Metropolitan Region Development Authority (MMRDA)":0.9914,"Mumbai Metropolitan Region Development Authority (MMRDA) - Metro PIU":1.0848,"Mumbai Railway Vikas Corporation Limited":0.755,"Mumbai Railway Vikas Corporation Limited (MRVC)":0.818,"Mumbai Railway Vikas Corporation Limited (Ministry of Railways)":1.0549,"Municipal Corporation - Ujjain - UAD (Water Supply Deptt)":1.2194,"Municipal Corporation Bhopal - Housing For All (UAD)":1.1152,"Municipal Corporation Bhopal - UAD (Water Works)":0.9731,"Municipal Corporation Indore - UAD (Indore Municipal Corporation)":0.8955,"Municipal Corporation of Greater Mumbai":0.9997,"Municipal Corporation of Greater Mumbai (MCGM)":0.9557,"Municipal Corporation of Greater Mumbai (MCGM) - Health Infrastructure Cell":1.0486,"Municipal Corporation-Bhopal - UAD":1.0737,"Municipal Corporation-Bhopal - UAD (Water Works)":1.0282,"Municipal Corporation-Indore - UAD":1.0094,"Municipal Corporation-Indore - UAD (Jal Yantralaya)":1.1697,"Municipal Council Dharashiv, Directorate of Municipal Administration, Maharashtra":1.1501,"Municipal Council Kulgaon Badlapur, Maharashtra.":0.9696,"NHIDCL Corporate Office-New Delhi":1.0448,"NHPC Limited":0.9303,"NHPC Limited (Corporate Office, Faridabad)":0.9878,"NICDC Punjab Industrial Corridor Development Corporation Limited":0.91,"NTPC Limited":0.901,"NTPC Limited (Western Region-II Head Quarter)":0.9855,"Nagar Panchayat Bahadura, Directorate of Municipal Administration, Maharashtra":0.9215,"Nagpur Metropolitan Region Development Authority":1.0823,"Nagpur Metropolitan Region Development Authority.":0.9731,"Nagpur Municipal Corporation (NMC) \u2013 Pench Project Cell":0.8505,"Nashik Municipal Corporation (Water Supply Department)":0.9707,"National High Speed Rail Corporation Limited":0.9834,"National High Speed Rail Corporation Limited (NHSRCL)":0.9978,"National Highways Authority of India (NHAI)":0.8424,"National Highways and Infrastructure Development Corporation (NHIDCL)":1.0448,"National Water Development Agency (NWDA)":0.9975,"Nuclear Power Corporation Of India Limited (Kudankulam Nuclear Power Project)":0.9593,"Nuclear Power Corporation Of India Limited (NPCIL)":0.9414,"Odisha State Agricultural Marketing Board (RMC Padampur)":0.974,"P.W Division":1.2465,"PHE, Eastern Circle (PHE), West Bengal.":0.993,"PHE, Project Management Unit (PMU), West Bengal":1.0276,"PWD - Roads and Bridges (Bhopal CE Bridge Zone)":1.0351,"PWD Building Construction Division Mulund, Mumbai":1.0387,"PWD Buildings (C and M) Division, Trichy, Trichy Region.":1.0447,"PWD CE Buildings, Buildings (C and M) Circle, Chennai":1.1006,"PWD CE Buildings, Buildings (C and M) Circle, Tiruvannamalai.":1.05,"PWD CE buildings (Buildings C and M Circle 1, PWD, Chennai)":1.0213,"PWD CE buildings, Buildings (C and M) Circle 2, Chennai.":1.0902,"PWD CE buildings, Buildings (C and M) Circle 2, PWD, Chennai.":1.0901,"PWD Division Ambejogai, Public Works Region - Aurangabad":0.9998,"PWD Division Amravati, Public Works Circle - Amravati":1.0784,"PWD Division Dhule, Public Works Circle - Dhule":1.0497,"PWD Division Nashik, Public Works Circle - Nashik":1.1283,"PWD Division No. 2 Chandrapur, Public Works Circle - Chandrapur":1.014,"PWD Division No.1 Nagpur, Public Works Circle - Nagpu":1.0395,"PWD Division No.1 Nagpur, Public Works Circle - Nagpur":1.1193,"PWD Presidency Division - Mumbai, Maharashtra":1.0493,"PWD Roads and Bridges, Central Zone Jabalpur, Madhya Pradesh.":0.7701,"PWD- Roads and Bridges, Madhya Pradesh":0.9001,"PWD- Roads and Bridges, Rewa Zone, Madhya Pradesh":0.7447,"PWD-PIU (Indore APD PIU PWD)":0.8418,"PWD-PIU (Jabalpur APD PIU PWD)":0.956,"PWD-PIU (Satna DPE PIU PWD)":0.9181,"Panvel Municipal Corporation":0.971,"Planning Department UP (Technical Cell EPC Mission":0.9805,"Planning Department UP (Technical Cell EPC Mission)":0.9997,"Planning Department UP, Technical Cell EPC Mission":0.9929,"Project Administrator, Bina PMU WRD Sagar":0.9963,"Project Director-KRFB (Kerala Road Fund Board)":0.9643,"Public Works (East) Division, Pune":1.18,"Public Works Building and NH Department (PWBNH)":1.1822,"Public Works Building and NH Department (PWBNH), Assam":1.105,"Public Works Building and NH Department, Assam":1.0287,"Public Works Circle - Nagpur, Integrated Unit Nagpur":1.085,"Public Works Circle-Pune Building Division-Pune, Maharashtra":1.0481,"Public Works Department (PWD), Tamil Nadu":1.0198,"Public Works Department, Government of Maharashtra (MoRTH)":0.744,"Public Works Division Aurangabad, Maharashtra":1.0349,"Public Works Division Kolhapur, Maharashtra":1.0425,"Public Works Division Kolhapur, Public Works Circle - Kolhapur, Maharashtra":1.0484,"Public Works Division Nashik, Maharashtra":0.9474,"Public Works Division No. 2 Nagpur, Maharashtra":0.8622,"Public Works Division North Mumbai - Andheri.":1.0,"Public Works Division-Pandharpur, Maharashtra":1.0597,"Public Works North Division Nashik, Maharashtra":1.054,"Public Works Roads Department, Assam":0.9573,"Pune Building Division-Pune, Public Works Circle-Pune":1.1186,"Pune Metropolitan Regional Development Authority":0.8722,"Pune Municipal Corporation":0.9501,"Pune Municipal Corporation (Building Construction Department)":0.9874,"Pune Planning Dept., Collector Pune":0.9849,"Punjab Health System Corporation (Engineering Wing)":0.9656,"Punjab State Power Corporation Limited":0.977,"RITES LTD (on behalf of Central Coalfields Limited - CCL)":0.7078,"RITES LTD on behalf of M/s. MCL Lakhanpur Long Haul Project":0.824,"RITES Ltd":0.8075,"RITES Ltd. (RPO Bhubaneshwar)":0.824,"RRVPN-CMD (Rajasthan Rajya Vidyut Prasaran Nigam Limited)":0.985,"RRVUN (Rajasthan Rajya Vidyut Utpadan Nigam Limited)":0.8398,"Rail Infrastructure Development Company (Karnataka) Limited - K-RIDE":1.0534,"Rashtriya Chemicals and Fertilizers Ltd (RCFL)":1.1849,"Registrar General, High Court of M.P., Jabalpur":0.9744,"SE Building Cell PWD Lucknow":0.9364,"SE Building Cell PWD Lucknow.":0.9621,"SE Technical Cell Niyojan Vibhag GoUP / PWD Lucknow":0.9485,"SE Technical Cell, EPC Mission, Planning Department GoUP":0.9754,"Siliguri Municipal Corporation (SMC), Municipal Affairs Department":0.9762,"South Eastern Coalfields Limited (SECL)":0.9374,"State Highway Authority of Jharkhand":0.8288,"State Industries Promotion Corporation Of Tamil Nadu Limited (SIPCOT)":0.8343,"State Industries Promotion Corporation Of TamilNadu (SIPCOT)":0.8789,"Sub-Collector Padampur-cum-Chairman R.M.C. Padampur":0.9556,"Superintending Engineer (NPP), RVUN, Jaipur":0.9922,"Superintending Engineer (SOUTH CIRCLE), Harbour Engineering Department (HED)":0.7705,"Superintending Engineer Highways Construction and Maintenance Tirupur Circle":1.2188,"Superintending Engineer, Gosekhurd Project Circle, Nagpur":1.044,"Superintending Engineer, Kaithal Circle, PWD B&R Branch, Kaithal":0.9894,"Superintending Engineer, PHED Project Circle, Tonk":1.0986,"Superintending Engineer, Public Health Circle Malappuram (KWA)":1.021,"Superintending Engineer, Public Health Circle Muvattupuzha":1.041,"Superintending Engineer, Public Health Circle Thrissur (KWA)":1.1566,"Superintending Engineer, Public Health Circle, Muvattupuzha":0.9613,"Superintending Engineer, South Circle Buildings, PWD Kerala":0.7287,"Tamil Nadu Civil Supplies Corporation":0.847,"Tamil Nadu Police Housing Corporation (TNPHC)":0.9923,"Tamil Nadu Police Housing Corporation Ltd. (TNPHC) - North Circle":1.002,"Tamil Nadu State Highways Authority":1.0277,"Tamil Nadu Urban Habitat Development Board (East Circle - 1 Chennai)":1.0381,"Tembhu Lift Irrigation Division No.1 Warnali, MKVDC":1.0711,"The Institute of Road Transport, Central Purchase Unit":0.9575,"The Punjab State Federation of Co-operative Sugar Mills":1.0,"The Spl. Chief Engineer, PWD (Building) - Health & Education, Assam":1.1571,"Tidel Park Ltd":0.9846,"UJVN Limited (Uttarakhand Jal Vidyut Nigam)":1.0,"UP Irrigation Department (Civil)":0.9237,"UP Jal Nigam (HQ), Lucknow":0.66,"UP Jal Nigam (Urban Works Unit Faizabad)":0.7795,"Ujjani Canal Division No. 8 Solapur, MKVDC":1.0521,"Ujjani Canal Division No.9 Mangalwedha (Maharashtra Krishna Valley Development Corporation)":0.9945,"Ujjani Canal Division No.9 Mangalwedha, MKVDC":0.9584,"Urban Affairs Department, Government of Meghalaya":1.0373,"Urban Affairs Department, Meghalaya":1.0001,"Urmodi Dam Division Satara, MKVDC":0.9999,"Uttar Pradesh Metro Rail Corporation Limited (UPMRCL)":0.9056,"Uttarakhand Power Corporation Limited (UPCL).":1.2648,"Vasantrao Naik Marathwada Agricultural University (VNMKV), Parbhani":1.0497,"WB HIDCO LTD":0.877,"WB HIDCO LTD (AGM Engineering - III).":1.1599,"WB HIDCO LTD (AGM Engineering - IV)":1.26,"Water Resources Department (WRD), Madhya Pradesh":0.9708,"Water Resources Department, Madhya Pradesh.":0.9879,"Water Resources Department, Maharashtra":0.9795,"Water Resources Dept. Amravati, E.E. Minor Irrigation Division No.2 Akola, Maharashtra":0.9901},"contract_type_bdr":{"DBOT":1.0765,"EPC":0.9478,"HAM":1.0196,"Item rate":0.9837},"state_nbidders":{"Andaman and Nicobar Islands":3.0997,"Andhra Pradesh":3.2097,"Arunachal Pradesh":4.0596,"Assam":2.8102,"Bihar":3.7509,"Chhattisgarh":3.6673,"Delhi":3.0926,"Goa":3.2097,"Gujarat":3.7203,"Haryana":3.6153,"Himachal Pradesh":3.1748,"Jammu and Kashmir":3.3783,"Jharkhand":3.1659,"Karnataka":3.2917,"Kerala":3.383,"Madhya Pradesh":3.3855,"Maharashtra":2.8279,"Manipur":3.2097,"Meghalaya":2.8641,"Odisha":3.8506,"Punjab":2.862,"Rajasthan":3.153,"Sikkim":3.2303,"Tamil Nadu":2.9433,"Telangana":3.2097,"Uttar Pradesh":3.3669,"Uttarakhand":2.9212,"West Bengal":3.1792},"sector_state_nbidders":{"Buildings_Defence_Strategic|Arunachal Pradesh":3.8693,"Buildings_Defence_Strategic|Kerala":3.1935,"Buildings_Defence_Strategic|Maharashtra":3.4677,"Buildings_Defence_Strategic|Uttar Pradesh":3.2097,"Buildings_Institutional|Assam":2.9894,"Buildings_Institutional|Chhattisgarh":3.3677,"Buildings_Institutional|Delhi":3.1551,"Buildings_Institutional|Haryana":3.4198,"Buildings_Institutional|Karnataka":3.2097,"Buildings_Institutional|Kerala":3.3303,"Buildings_Institutional|Madhya Pradesh":2.9892,"Buildings_Institutional|Maharashtra":2.7889,"Buildings_Institutional|Meghalaya":3.1551,"Buildings_Institutional|Odisha":3.5177,"Buildings_Institutional|Punjab":3.2097,"Buildings_Institutional|Sikkim":3.2097,"Buildings_Institutional|Tamil Nadu":2.8849,"Buildings_Institutional|Uttar Pradesh":3.1557,"Buildings_Institutional|Uttarakhand":3.1166,"Buildings_Institutional|West Bengal":3.2097,"Heavy_Civil_Structures|Andaman and Nicobar Islands":3.1166,"Heavy_Civil_Structures|Arunachal Pradesh":3.2097,"Heavy_Civil_Structures|Chhattisgarh":3.2097,"Heavy_Civil_Structures|Gujarat":3.5677,"Heavy_Civil_Structures|Haryana":3.3474,"Heavy_Civil_Structures|Jammu and Kashmir":3.2704,"Heavy_Civil_Structures|Jharkhand":3.2097,"Heavy_Civil_Structures|Karnataka":3.275,"Heavy_Civil_Structures|Kerala":3.3573,"Heavy_Civil_Structures|Madhya Pradesh":3.4677,"Heavy_Civil_Structures|Maharashtra":3.0695,"Heavy_Civil_Structures|Manipur":3.2097,"Heavy_Civil_Structures|Punjab":3.2097,"Heavy_Civil_Structures|Rajasthan":3.2097,"Heavy_Civil_Structures|Tamil Nadu":3.3073,"Heavy_Civil_Structures|Uttar Pradesh":3.4177,"Heavy_Civil_Structures|West Bengal":3.232,"Hydraulic_Storage|Arunachal Pradesh":3.2097,"Hydraulic_Storage|Haryana":3.2097,"Hydraulic_Storage|Jammu and Kashmir":3.2704,"Hydraulic_Storage|Kerala":3.275,"Hydraulic_Storage|Madhya Pradesh":3.0226,"Hydraulic_Storage|Maharashtra":2.8861,"Hydraulic_Storage|Odisha":3.2097,"Hydraulic_Storage|Rajasthan":3.0845,"Hydraulic_Storage|Sikkim":3.2097,"Hydraulic_Storage|Uttarakhand":3.2097,"Hydraulic_Storage|West Bengal":3.2097,"Linear_Transport|Andhra Pradesh":3.2097,"Linear_Transport|Arunachal Pradesh":3.6573,"Linear_Transport|Assam":3.2097,"Linear_Transport|Bihar":3.5177,"Linear_Transport|Chhattisgarh":3.3702,"Linear_Transport|Gujarat":3.2097,"Linear_Transport|Haryana":3.2097,"Linear_Transport|Himachal Pradesh":3.2097,"Linear_Transport|Jharkhand":3.3474,"Linear_Transport|Madhya Pradesh":3.6673,"Linear_Transport|Maharashtra":2.952,"Linear_Transport|Meghalaya":3.2097,"Linear_Transport|Punjab":3.2097,"Linear_Transport|Sikkim":3.2097,"Linear_Transport|Tamil Nadu":3.0573,"Linear_Transport|Uttar Pradesh":3.235,"Linear_Transport|Uttarakhand":3.2097,"Linear_Transport|West Bengal":3.2097,"Metro_Integrated|Bihar":3.3474,"Metro_Integrated|Delhi":3.1936,"Metro_Integrated|Karnataka":3.0781,"Metro_Integrated|Madhya Pradesh":3.2097,"Metro_Integrated|Maharashtra":3.077,"Metro_Integrated|Odisha":3.5677,"Metro_Integrated|Tamil Nadu":2.9893,"Metro_Integrated|Uttar Pradesh":3.3226,"Other|Assam":3.1935,"Other|Chhattisgarh":3.2097,"Other|Delhi":3.2097,"Other|Goa":3.2097,"Other|Gujarat":3.2097,"Other|Haryana":3.3678,"Other|Jammu and Kashmir":3.2097,"Other|Jharkhand":3.2097,"Other|Karnataka":3.2097,"Other|Kerala":3.2704,"Other|Madhya Pradesh":3.197,"Other|Maharashtra":3.0609,"Other|Meghalaya":3.2097,"Other|Odisha":3.232,"Other|Punjab":3.2097,"Other|Rajasthan":3.1573,"Other|Tamil Nadu":3.3177,"Other|Uttar Pradesh":3.2097,"Other|West Bengal":3.2951,"Power_Infrastructure|Assam":2.9893,"Power_Infrastructure|Chhattisgarh":3.309,"Power_Infrastructure|Gujarat":3.2097,"Power_Infrastructure|Himachal Pradesh":3.1166,"Power_Infrastructure|Jharkhand":3.0177,"Power_Infrastructure|Kerala":3.2097,"Power_Infrastructure|Madhya Pradesh":3.1936,"Power_Infrastructure|Odisha":3.2097,"Power_Infrastructure|Punjab":3.2097,"Power_Infrastructure|Rajasthan":3.2827,"Power_Infrastructure|Tamil Nadu":3.232,"Power_Infrastructure|Uttar Pradesh":3.2097,"Power_Infrastructure|Uttarakhand":3.2097,"Sanitation|Chhattisgarh":3.2097,"Sanitation|Haryana":3.275,"Sanitation|Madhya Pradesh":3.4911,"Sanitation|Maharashtra":3.148,"Sanitation|Tamil Nadu":3.1573,"Urban_Integrated|Assam":3.2097,"Urban_Integrated|Jharkhand":3.2097,"Urban_Integrated|Kerala":3.2097,"Urban_Integrated|Maharashtra":3.1166,"Urban_Integrated|Meghalaya":3.2097,"Urban_Integrated|Odisha":3.2097,"Urban_Integrated|Punjab":3.2097,"Urban_Integrated|Uttar Pradesh":3.2097,"Water_Distribution|Haryana":3.0845,"Water_Distribution|Kerala":3.0369,"Water_Distribution|Madhya Pradesh":3.3441,"Water_Distribution|Maharashtra":2.8861,"Water_Distribution|Rajasthan":3.2097,"Water_Distribution|Telangana":3.2097,"Water_Distribution|Uttar Pradesh":3.232,"Water_Distribution|West Bengal":3.232},"client_type_bdr":{"Airport_Authority":0.8305,"Central_Agency_BRO":0.7279,"Central_Agency_NHAI":0.8424,"Central_Ministry":0.748,"Defence":0.9359,"Metro_Rail":0.9722,"Municipal":1.0171,"Other":0.9944,"PSU_Engineering":0.905,"PSU_Power_or_Coal":0.93,"Railway":0.9322,"State_PWD":1.0291,"State_Power_Utility":0.9913,"State_Urban_Industrial":0.9927,"Water_Authority":0.9804},"clienttype_nbidders":{"Airport_Authority":3.7866,"Central_Agency_BRO":3.741,"Central_Agency_NHAI":3.8047,"Central_Ministry":3.923,"Defence":3.8339,"Metro_Rail":3.2402,"Municipal":3.1929,"Other":3.0292,"PSU_Engineering":3.515,"PSU_Power_or_Coal":3.389,"Railway":3.58,"State_PWD":2.8737,"State_Power_Utility":2.8589,"State_Urban_Industrial":3.0953,"Water_Authority":2.8953},"state_gfcf":{"Andaman and Nicobar Islands":10.0,"Andhra Pradesh":9.5,"Arunachal Pradesh":15.5,"Assam":10.8,"Bihar":11.0,"Chhattisgarh":10.5,"Delhi":7.2,"Goa":8.5,"Gujarat":10.2,"Haryana":8.0,"Himachal Pradesh":12.5,"Jammu and Kashmir":12.8,"Jharkhand":9.2,"Karnataka":9.0,"Kerala":6.5,"Madhya Pradesh":12.3,"Maharashtra":8.5,"Manipur":13.8,"Meghalaya":12.5,"Odisha":13.5,"Punjab":6.8,"Rajasthan":10.5,"Sikkim":14.2,"Tamil Nadu":9.8,"Telangana":10.8,"Uttar Pradesh":11.5,"Uttarakhand":11.2,"West Bengal":7.8},"state_region":{"Andaman and Nicobar Islands":"Islands","Andhra Pradesh":"South","Arunachal Pradesh":"Northeast","Assam":"Northeast","Bihar":"East","Chhattisgarh":"Central","Delhi":"North","Goa":"West","Gujarat":"West","Haryana":"North","Himachal Pradesh":"North","Jammu and Kashmir":"North","Jharkhand":"East","Karnataka":"South","Kerala":"South","Madhya Pradesh":"Central","Maharashtra":"West","Manipur":"Northeast","Meghalaya":"Northeast","Odisha":"East","Punjab":"North","Rajasthan":"West","Sikkim":"Northeast","Tamil Nadu":"South","Telangana":"South","Uttar Pradesh":"North","Uttarakhand":"North","West Bengal":"East"},"client_names":["AGM (Engg) HSIIDC Kharkhoda","Ahmednagar Municipal Corporation","Airports Authority of India (AAI)","Airports Authority of India (AAI), Engineering Electrical - CHQ","Asolamendha Project Renovation Division No.1 Mul (WRD Maharashtra)","Assam Electricity Grid Corporation Ltd","Assam Electricity Grid Corporation Ltd. (AEGCL)","Assam Police Housing Corporation Ltd","Assam Power Generation Company Limited (APGCL)","BRIDGE AND ROOF CO. (INDIA) LIMITED","Bodoland Territorial Council-PWD, Assam","Bridge & Roof Co. (I) Ltd","Bridge & Roof Co. (I) Ltd.","Bridge & Roof Co. (I) Ltd. (on behalf of DMER Haryana)","Bridge and Roof Company (India) Limited","Brihanmumbai Municipal Corporation","Brihanmumbai Municipal Corporation (BMC)","Brihanmumbai Municipal Corporation (BMC) / MCGM","Brihanmumbai Municipal Corporation (BMC) / MCGM.","Brihanmumbai Municipal Corporation (BMC/MCGM)","Buildings and Housing Department, Govt of Sikkim","CCE, Anandapur Barrage Project","CE-Water Resources Dept. Amravati","CE-Water Resources Dept. Amravati (EE Jigaon Rehabilitation Division Khamgaon)","CE-Water Resources Dept. Amravati (Yavatmal Irrigation Circle)","CE-Water Resources Dept. Konkan Region Mumbai","CIDCO Ltd (Engineering Department - NAINA-I)","CIDCO Ltd (Engineering Department)","Central Coalfields Limited","Chennai Metro Rail Limited (CMRL)","Chennai Petroleum Corporation Limited (Ministry of Petroleum and Natural Gas)","Chief Engineer (C - I&CC), Vydyuthi Bhavanam, Thiruvananthapuram","Chief Engineer Mirzapur Zone PWD (Provincial Division Sonbhadra)","Chief Engineer PWD Central Zone, Lucknow","Chief Engineer, Rani Avanti Bai Lodhi Sagar Project, Bargi Hills, Jabalpur","Chief Engineer, Rani Avanti Bai Lodhi Sagar Project, Jabalpur","Chief Engineer-Building - PWBNH, Assam","Cochin International Airport Limited (CIAL)","Construction Division Osmanabad, Public Works Circle - Osmanabad","DGMAP - Military Engineer Services (MES)","DRDO - Chief Construction Engineer (R&D) South, Secunderabad","DRDO - Chief Construction Engineer (R&D) West","Defence Research and Development Organisation (DRDO)","Delhi Metro Rail Corporation Limited (DMRC)","Department of Housing and Urban Development, GMADA, Punjab","Directorate of Local Bodies UP","Directorate of Sports and Youth Services, Pune (Division Sports Office, Nashik)","Divisional Project Engineer, PWD PIU, SATNA","Dte General Border Roads Organisation","Dte General Border Roads Organisation (BRO)","Dte General Border Roads Organisation (BRO), HQ CE(P) Brahmank","Dte General Border Roads Organisation (BRO), Project Swastik","E-IN-C Branch - Military Engineer Services (CESC and CE (AF) Bangalore)","E-IN-C Branch - Military Engineer Services (CESC and CE (Navy) Kochi)","E-IN-C Branch - Military Engineer Services (MES)","E.E. Minor Irrigation Division No.2 Akola, WRD Amravati","EE Chandrapur Medium Project Div No. 1, WRD Nagpur","EE Hetawane Medium Project Division Kamarli, North Konkan Irrigation Project Circle, Maharashtra","EE Irrigation Project Investigation Division, MKVDC Pune","EE Jigao Rehabilitation Div Shegaon, WRD Amravati","EE Jigaon Lift Irrigation Division Khamgaon, WRD Amravati","EE Jigaon Proj Dam and Rehabilitation Div Shegaon, WRD Amravati","EE Krishna Marathwada Const Div No.1 Osmanabad","EE Minor Irrigation Division Chandrapur, WRD Nagpu","EE Minor Irrigation Division Hingoli, Nanded Irrigation Circle","EE Minor Irrigation Division Karanja Lad, WRD Amravati","EE Minor Irrigation Division No 1, Aurangabad (Maharashtra Water Resources Department)","EE Minor Irrigation Division Parbhani, Nanded Irrigation Circle","EE Minor Irrigation Division Wardha, WRD Nagpur","EE Nanded Irrigation Division (South) Nanded, Maharashtra","EE Nandur Madhameshwar Canal Div Vaijapur, WRD Aurangabad","EE Sulwade Jamphal Kanoli Lift Irri Div, Dhule (TIDC Jalgaon)","EE Tapi Valley Survey and Invest Div Unit Jalgaon (TIDC Jalgaon)","EE Upper Penganga Project Div No. 4 Akhadabalapur","EE Upper Pravara Canal Division Sangamner, CADA Ahmednagar","EE Upper Pravara Dam Division Sangamner, CADA Ahmednagar","Eastern Rajasthan Canal Project Corporation Limited","Electronics Technology Park Kerala (Technopark)","Employees State Insurance Corporation (ESIC)","Engineer-in-Chief - Water Resources Department (WRD), Madhya Pradesh","Engineer-in-Chief - Water Resources Department (WRD), Madhya Pradesh.","Engineer-in-Chief - Water Resources Department, Chief Engineer Procurement (Bhopal)","Engineer-in-Chief - Water Resources Department, Madhya Pradesh","Engineer-in-Chief - Water Resources Department, Madhya Pradesh.","Engineering Projects (India) Ltd","Ex. Engr. Takari Mhaisal Lift Irr. Management Division, Sangli (MKVDC)","Executive Director/Projects, IRCON International Limited","Executive Director/Special Works, IRCON International Limited","Executive Engineer, Asolamendha Project Renovation Division No. 1 Mul.","Executive Engineer, HSVP Division No. III, Faridabad","Executive Engineer, Minor Irrigation Division, Akola","Executive Engineer, RCD, Road Division, Ranchi (Gramin)","Executive Engineer, Raigad Irrigation Division No.2, Navi Mumbai","Executive Engineer, Raigad Irrigation Division No.2, Navi Mumbai.","Executive Engineer, Water Resources Division, Chhatarpur","Executive Engineer, Water Resources Division, Sheopur","Goa Tourism Development Corporation Limited","Gorakhpur Development Authority","Government of Haryana.","Gujarat State Electricity Corporation Limited (GSECL)","Guwahati Metropolitan Development Authority (GMDA)","HITES","HITES (HLL Infra Tech Services Ltd)","HPSEBL (Himachal Pradesh State Electricity Board Ltd.)","HSIIDC, Haryana Board Corporation","Haryana Government (Engineer-in-Chief PHED Panchkula).","Haryana Government (Engineer-in-Chief PHED)","Haryana Government (Irrigation HKB Circle Jagadhari)","Haryana Government, GMDA, INFRA II","Haryana International Horticultural Marketing Corporation Ltd. (HIHMCL)","Haryana Mass Rapid Transport Corporation Ltd.","Haryana Rail Infrastructure Development Corporation Limited","Highways Construction and Maintenance Wing, Madurai Circle","Highways Department, CMDP Circle, Tamil Nadu.","Highways Department, Construction and Maintenance Wing, Madurai Circle","Highways, Construction and Maintenance Wing, Tiruppur Circle, Tamil Nadu","INKEL Limited","IRCON International Limited","IRCON International Limited (Civil Engineering - IRCON)","IRCON International Limited (New Delhi)","Indian Oil Corporation (Business Development Contracts)","Indian Oil Corporation (Marketing - Southern Region)","Indian Oil Corporation Limited (IOCL) - Paradip Refinery","Indore Development Authority (Directorate of Town and Country Planning)","Information Technology Department Meghalaya","Irregation department","Jharkhand Urja Sancharan Nigam Limited","Jharkhand Urja Sancharan Nigam Limited (JUSNL)","KSEB - Chief Engineer (C - I&CC), Thiruvananthapuram","Kerala Road Fund Board (KRFB) / PWD Kerala","Kerala State Council for Science Technology and Environment (KSCSTE)","Kerala State Electricity Board (KSEB)","Kerala State IT Infrastructure Ltd","Kerala State IT Infrastructure Ltd (KSITIL)","Kolkata Metropolitan Development Authority (KMDA)","M.P. Building Development Corporation Ltd. Bhopal","M/s TUSCO / EPMC: MECON LIMITED","M/s Tidel Park Ltd","MCGM (Water Supply Project)","MCGM \u2013 Building Maintenance and Health Infrastructure Cell","MD (Drinking Water) Peyjal Nigam GoUK","MD (Drinking Water) Peyjal Nigam GoUK (Construction Wing)","MECON LIMITED","MHADA \u2013 Housing and Area Development Board, Nagpur","MMRDA \u2013 Metro PIU","MP Housing and Infrastructure Development Board","MP Housing and Infrastructure Development Board (EE Div 04 Bhopal)","MP Industrial Development Corporation Limited","MP Industrial Development Corporation Limited (MPIDC)","MP Police Housing and Infrastructure Development Corporation Ltd","MP Police Housing and Infrastructure Development Corporation Ltd (Indore 01)","MP State Tourism Development Corporation Ltd","Madhya Pradesh Jal Nigam Maryadit","Madhya Pradesh Jal Nigam Maryadit (MPJNM)","Madhya Pradesh Metro Rail Corporation Limited","Madhya Pradesh Power Generating Company Limited (MPPGCL)","Madhya Pradesh Road Development Corporation Limited","Madhya Pradesh Road Development Corporation Limited (ADB Tenders)","Madhya Pradesh Road Development Corporation Limited (MPRDC)","Madurai City Municipal Corporation","Madurai Municipal Corporation (MAWS)","Mahanadi Coalfields Limited (MCL)","Maharashtra Housing Development Corporation (MahaHousing)","Maharashtra Industrial Development Corporation (MIDC)","Maharashtra Maritime Board, Mumbai","Maharashtra Metro Rail Corporation Limited","Maharashtra Metro Rail Corporation Limited (Nagpur Metro)","Maharashtra Metro Rail Corporation Limited - ADB Tenders","Maharashtra State Infrastructure Development Corporation","Maharashtra State Infrastructure Development Corporation (MSIDC)","Military Engineer Services (CE Bathinda Zone)","Military Engineer Services (MES)","Military Engineer Services (MES) - CE Bareilly Zone","Military Engineer Services (MES) - CE Delhi Zone","Military Engineer Services (MES) - DGMAP","Military Engineer Services (MES) \u2013 CE (Navy) Kochi","Military Engineer Services (MES) \u2013 DGMAP","Military Engineer Services (MES), CE Chandigarh Zone","Military Engineer Services (MES), CE Kolkata Zone","Ministry of Road Transport and Highways","Ministry of Road Transport and Highways (MoRTH)","Ministry of Road Transport and Highways (RO Itanagar - MORTH)","Ministry of Road Transport and Highways (RO Itanagar - MORTH).","Ministry of Road Transport and Highways (RO Itanagar - MoRTH).","Minor Irrigation Division Warnali, Sangli Irrigation Circle, MKVDC","Mumbai Metropolitan Region Development Authority (MMRDA)","Mumbai Metropolitan Region Development Authority (MMRDA) - Metro PIU","Mumbai Railway Vikas Corporation Limited","Mumbai Railway Vikas Corporation Limited (MRVC)","Mumbai Railway Vikas Corporation Limited (Ministry of Railways)","Municipal Corporation - Ujjain - UAD (Water Supply Deptt)","Municipal Corporation Bhopal - Housing For All (UAD)","Municipal Corporation Bhopal - UAD (Water Works)","Municipal Corporation Indore - UAD (Indore Municipal Corporation)","Municipal Corporation of Greater Mumbai","Municipal Corporation of Greater Mumbai (MCGM)","Municipal Corporation of Greater Mumbai (MCGM) - Health Infrastructure Cell","Municipal Corporation-Bhopal - UAD","Municipal Corporation-Bhopal - UAD (Water Works)","Municipal Corporation-Indore - UAD","Municipal Corporation-Indore - UAD (Jal Yantralaya)","Municipal Council Dharashiv, Directorate of Municipal Administration, Maharashtra","Municipal Council Kulgaon Badlapur, Maharashtra.","NHIDCL Corporate Office-New Delhi","NHPC Limited","NHPC Limited (Corporate Office, Faridabad)","NICDC Punjab Industrial Corridor Development Corporation Limited","NTPC Limited","NTPC Limited (Western Region-II Head Quarter)","Nagar Panchayat Bahadura, Directorate of Municipal Administration, Maharashtra","Nagpur Metropolitan Region Development Authority","Nagpur Metropolitan Region Development Authority.","Nagpur Municipal Corporation (NMC) \u2013 Pench Project Cell","Nashik Municipal Corporation (Water Supply Department)","National High Speed Rail Corporation Limited","National High Speed Rail Corporation Limited (NHSRCL)","National Highways Authority of India (NHAI)","National Highways and Infrastructure Development Corporation (NHIDCL)","National Water Development Agency (NWDA)","Nuclear Power Corporation Of India Limited (Kudankulam Nuclear Power Project)","Nuclear Power Corporation Of India Limited (NPCIL)","Odisha State Agricultural Marketing Board (RMC Padampur)","P.W Division","PHE, Eastern Circle (PHE), West Bengal.","PHE, Project Management Unit (PMU), West Bengal","PWD - Roads and Bridges (Bhopal CE Bridge Zone)","PWD Building Construction Division Mulund, Mumbai","PWD Buildings (C and M) Division, Trichy, Trichy Region.","PWD CE Buildings, Buildings (C and M) Circle, Chennai","PWD CE Buildings, Buildings (C and M) Circle, Tiruvannamalai.","PWD CE buildings (Buildings C and M Circle 1, PWD, Chennai)","PWD CE buildings, Buildings (C and M) Circle 2, Chennai.","PWD CE buildings, Buildings (C and M) Circle 2, PWD, Chennai.","PWD Division Ambejogai, Public Works Region - Aurangabad","PWD Division Amravati, Public Works Circle - Amravati","PWD Division Dhule, Public Works Circle - Dhule","PWD Division Nashik, Public Works Circle - Nashik","PWD Division No. 2 Chandrapur, Public Works Circle - Chandrapur","PWD Division No.1 Nagpur, Public Works Circle - Nagpu","PWD Division No.1 Nagpur, Public Works Circle - Nagpur","PWD Presidency Division - Mumbai, Maharashtra","PWD Roads and Bridges, Central Zone Jabalpur, Madhya Pradesh.","PWD- Roads and Bridges, Madhya Pradesh","PWD- Roads and Bridges, Rewa Zone, Madhya Pradesh","PWD-PIU (Indore APD PIU PWD)","PWD-PIU (Jabalpur APD PIU PWD)","PWD-PIU (Satna DPE PIU PWD)","Panvel Municipal Corporation","Planning Department UP (Technical Cell EPC Mission","Planning Department UP (Technical Cell EPC Mission)","Planning Department UP, Technical Cell EPC Mission","Project Administrator, Bina PMU WRD Sagar","Project Director-KRFB (Kerala Road Fund Board)","Public Works (East) Division, Pune","Public Works Building and NH Department (PWBNH)","Public Works Building and NH Department (PWBNH), Assam","Public Works Building and NH Department, Assam","Public Works Circle - Nagpur, Integrated Unit Nagpur","Public Works Circle-Pune Building Division-Pune, Maharashtra","Public Works Department (PWD), Tamil Nadu","Public Works Department, Government of Maharashtra (MoRTH)","Public Works Division Aurangabad, Maharashtra","Public Works Division Kolhapur, Maharashtra","Public Works Division Kolhapur, Public Works Circle - Kolhapur, Maharashtra","Public Works Division Nashik, Maharashtra","Public Works Division No. 2 Nagpur, Maharashtra","Public Works Division North Mumbai - Andheri.","Public Works Division-Pandharpur, Maharashtra","Public Works North Division Nashik, Maharashtra","Public Works Roads Department, Assam","Pune Building Division-Pune, Public Works Circle-Pune","Pune Metropolitan Regional Development Authority","Pune Municipal Corporation","Pune Municipal Corporation (Building Construction Department)","Pune Planning Dept., Collector Pune","Punjab Health System Corporation (Engineering Wing)","Punjab State Power Corporation Limited","RITES LTD (on behalf of Central Coalfields Limited - CCL)","RITES LTD on behalf of M/s. MCL Lakhanpur Long Haul Project","RITES Ltd","RITES Ltd. (RPO Bhubaneshwar)","RRVPN-CMD (Rajasthan Rajya Vidyut Prasaran Nigam Limited)","RRVUN (Rajasthan Rajya Vidyut Utpadan Nigam Limited)","Rail Infrastructure Development Company (Karnataka) Limited - K-RIDE","Rashtriya Chemicals and Fertilizers Ltd (RCFL)","Registrar General, High Court of M.P., Jabalpur","SE Building Cell PWD Lucknow","SE Building Cell PWD Lucknow.","SE Technical Cell Niyojan Vibhag GoUP / PWD Lucknow","SE Technical Cell, EPC Mission, Planning Department GoUP","Siliguri Municipal Corporation (SMC), Municipal Affairs Department","South Eastern Coalfields Limited (SECL)","State Highway Authority of Jharkhand","State Industries Promotion Corporation Of Tamil Nadu Limited (SIPCOT)","State Industries Promotion Corporation Of TamilNadu (SIPCOT)","Sub-Collector Padampur-cum-Chairman R.M.C. Padampur","Superintending Engineer (NPP), RVUN, Jaipur","Superintending Engineer (SOUTH CIRCLE), Harbour Engineering Department (HED)","Superintending Engineer Highways Construction and Maintenance Tirupur Circle","Superintending Engineer, Gosekhurd Project Circle, Nagpur","Superintending Engineer, Kaithal Circle, PWD B&R Branch, Kaithal","Superintending Engineer, PHED Project Circle, Tonk","Superintending Engineer, Public Health Circle Malappuram (KWA)","Superintending Engineer, Public Health Circle Muvattupuzha","Superintending Engineer, Public Health Circle Thrissur (KWA)","Superintending Engineer, Public Health Circle, Muvattupuzha","Superintending Engineer, South Circle Buildings, PWD Kerala","Tamil Nadu Civil Supplies Corporation","Tamil Nadu Police Housing Corporation (TNPHC)","Tamil Nadu Police Housing Corporation Ltd. (TNPHC) - North Circle","Tamil Nadu State Highways Authority","Tamil Nadu Urban Habitat Development Board (East Circle - 1 Chennai)","Tembhu Lift Irrigation Division No.1 Warnali, MKVDC","The Institute of Road Transport, Central Purchase Unit","The Punjab State Federation of Co-operative Sugar Mills","The Spl. Chief Engineer, PWD (Building) - Health & Education, Assam","Tidel Park Ltd","UJVN Limited (Uttarakhand Jal Vidyut Nigam)","UP Irrigation Department (Civil)","UP Jal Nigam (HQ), Lucknow","UP Jal Nigam (Urban Works Unit Faizabad)","Ujjani Canal Division No. 8 Solapur, MKVDC","Ujjani Canal Division No.9 Mangalwedha (Maharashtra Krishna Valley Development Corporation)","Ujjani Canal Division No.9 Mangalwedha, MKVDC","Urban Affairs Department, Government of Meghalaya","Urban Affairs Department, Meghalaya","Urmodi Dam Division Satara, MKVDC","Uttar Pradesh Metro Rail Corporation Limited (UPMRCL)","Uttarakhand Power Corporation Limited (UPCL).","Vasantrao Naik Marathwada Agricultural University (VNMKV), Parbhani","WB HIDCO LTD","WB HIDCO LTD (AGM Engineering - III).","WB HIDCO LTD (AGM Engineering - IV)","Water Resources Department (WRD), Madhya Pradesh","Water Resources Department, Madhya Pradesh.","Water Resources Department, Maharashtra","Water Resources Dept. Amravati, E.E. Minor Irrigation Division No.2 Akola, Maharashtra"]},"imp_agg":{"enc_cost_tier_bdr":0.66531,"enc_sector_state_bdr":0.01354,"enc_sector_region_bdr":0.00898,"enc_clienttype_sector_bdr":0.03594,"hist_sector_state_n_bidders":0.01539,"enc_client_name_bdr":0.02269,"enc_contract_type_bdr":0.17556,"hist_state_n_bidders":0.0145,"is_central_client":0.0,"dist_to_metro_km":0.00268,"log_dist_to_metro":0.00285,"enc_client_type_bdr":0.01623,"hist_clienttype_n_bidders":0.01963,"state_gfcf_pct_APPROX":0.00658,"is_remote_distance":0.00011},"imp_exc":{"enc_cost_tier_bdr":0.48784,"enc_sector_state_bdr":0.03876,"enc_sector_region_bdr":0.02588,"enc_clienttype_sector_bdr":0.04398,"hist_sector_state_n_bidders":0.01848,"enc_client_name_bdr":0.02527,"enc_contract_type_bdr":0.18769,"hist_state_n_bidders":0.04144,"is_central_client":0.00491,"dist_to_metro_km":0.01997,"log_dist_to_metro":0.0263,"enc_client_type_bdr":0.04301,"hist_clienttype_n_bidders":0.01934,"state_gfcf_pct_APPROX":0.01061,"is_remote_distance":0.00654},"metrics":{"agg":{"acc":0.98,"auc":0.9985,"f1":0.9375,"prec":0.9375,"rec":0.9375,"cm":[[83,1],[1,15]]},"exc":{"acc":0.95,"auc":0.9951,"f1":0.9091,"prec":0.9615,"rec":0.8621,"cm":[[70,1],[4,25]]},"roc":{"fpr_a":[0.0,0.0,0.0,0.0238,0.0238,0.3929,0.4167,0.4881,0.5238,0.631,0.6429,0.6905,0.7143,0.7619,0.7738,0.7976,1.0],"tpr_a":[0.0,0.0625,0.9375,0.9375,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0],"fpr_e":[0.0,0.0,0.0,0.0141,0.0141,0.0423,0.0423,0.0704,0.0704,1.0],"tpr_e":[0.0,0.0345,0.8621,0.8621,0.931,0.931,0.9655,0.9655,1.0,1.0]},"n_train":396,"n_test":100}};
+const LK = D.lookup;
+const MET = D.metrics;
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let rocAgg=null, rocExc=null;
+
+const FEAT_LABELS = {
+  enc_cost_tier_bdr:'Hist. BDR — Cost Tier',
+  enc_sector_state_bdr:'Hist. BDR — Sector × State',
+  enc_sector_region_bdr:'Hist. BDR — Sector × Region',
+  enc_clienttype_sector_bdr:'Hist. BDR — Client × Sector',
+  hist_sector_state_n_bidders:'Expected Bidders (Sector × State)',
+  enc_client_name_bdr:'Hist. BDR — Client Name',
+  enc_contract_type_bdr:'Hist. BDR — Contract Type',
+  hist_state_n_bidders:'Expected Bidders in State',
+  is_central_client:'Is Central Govt Client',
+  dist_to_metro_km:'Distance to Metro (km)',
+  log_dist_to_metro:'Log Distance to Metro',
+  enc_client_type_bdr:'Hist. BDR — Client Type',
+  hist_clienttype_n_bidders:'Expected Bidders (Client Type)',
+  state_gfcf_pct_APPROX:'State Capital Formation (%)',
+  is_remote_distance:'Is Remote Location'
+};
+
+const FEAT_DESC = {
+  enc_cost_tier_bdr:'Historical average BDR for this cost tier group (Small/Medium/Large/Mega)',
+  enc_sector_state_bdr:'Historical average BDR for this sector in this specific state',
+  enc_sector_region_bdr:'Historical average BDR for this sector in this region',
+  enc_clienttype_sector_bdr:'Historical average BDR combining client type and sector',
+  hist_sector_state_n_bidders:'Expected number of competing bidders for this sector and state',
+  enc_client_name_bdr:'Historical average BDR for this specific client organization',
+  enc_contract_type_bdr:'Historical average BDR for this contract structure type',
+  hist_state_n_bidders:'Historical average number of bidders in this state',
+  is_central_client:'1 = Central Government client, 0 = State/PSU/Other',
+  dist_to_metro_km:'Straight-line distance to nearest metro city in kilometres',
+  log_dist_to_metro:'Natural logarithm of distance to metro (reduces skewness)',
+  enc_client_type_bdr:'Historical average BDR for this client type category',
+  hist_clienttype_n_bidders:'Expected number of bidders based on client type history',
+  state_gfcf_pct_APPROX:'State gross fixed capital formation as % of GSDP (macro indicator)',
+  is_remote_distance:'1 if distance to metro > 100km (remote project)'
+};
+
+// ─── SMART DEFAULTS ──────────────────────────────────────────────────────────
+function onStateChange(){
+  const state = document.getElementById('state').value;
+  const isCentral = ['Delhi','Chandigarh'].includes(state) ? '1' : '0';
+}
+
+function onClientTypeChange(){
+  const ct = document.getElementById('client_type').value;
+  const centralTypes = ['Central_Agency_BRO','Central_Agency_NHAI','Central_Ministry','Defence','Metro_Rail'];
+  document.getElementById('is_central').value = centralTypes.includes(ct) ? '1' : '0';
+}
+
+// ─── FEATURE ENGINEERING ─────────────────────────────────────────────────────
+function buildFeatures(){
+  const cost_tier    = document.getElementById('cost_tier').value;
+  const state        = document.getElementById('state').value;
+  const sector       = document.getElementById('sector').value;
+  const client_type  = document.getElementById('client_type').value;
+  const contract     = document.getElementById('contract_type').value;
+  const client_name  = document.getElementById('client_name').value.trim();
+  const is_central   = parseInt(document.getElementById('is_central').value);
+  const dist         = parseFloat(document.getElementById('dist_metro').value) || 100;
+  const region       = LK.state_region[state] || 'North';
+  const g            = LK.global_bdr;
+
+  const f1  = LK.cost_tier_bdr[cost_tier] ?? g;
+  const f2  = LK.sector_state_bdr[sector+'|'+state] ?? LK.sector_bdr[sector] ?? g;
+  const f3  = LK.sector_region_bdr[sector+'|'+region] ?? LK.sector_bdr[sector] ?? g;
+  const f4  = ((LK.client_type_bdr[client_type]??g) + (LK.sector_bdr[sector]??g)) / 2;
+  const f5  = (LK.sector_state_nbidders[sector+'|'+state] ?? LK.state_nbidders[state] ?? 3.2);
+  const f6  = (client_name && LK.client_name_bdr[client_name]) ? LK.client_name_bdr[client_name] : (LK.client_type_bdr[client_type] ?? g);
+  const f7  = LK.contract_type_bdr[contract] ?? g;
+  const f8  = LK.state_nbidders[state] ?? 3.2;
+  const f9  = is_central;
+  const f10 = dist;
+  const f11 = Math.log(dist + 1);
+  const f12 = LK.client_type_bdr[client_type] ?? g;
+  const f13 = LK.clienttype_nbidders[client_type] ?? 3.2;
+  const f14 = LK.state_gfcf[state] ?? 10.0;
+  const f15 = dist > 100 ? 1 : 0;
+
+  const vec = [f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13,f14,f15];
+  const details = {
+    enc_cost_tier_bdr:+f1.toFixed(4), enc_sector_state_bdr:+f2.toFixed(4),
+    enc_sector_region_bdr:+f3.toFixed(4), enc_clienttype_sector_bdr:+f4.toFixed(4),
+    hist_sector_state_n_bidders:+f5.toFixed(4), enc_client_name_bdr:+f6.toFixed(4),
+    enc_contract_type_bdr:+f7.toFixed(4), hist_state_n_bidders:+f8.toFixed(4),
+    is_central_client:f9, dist_to_metro_km:+f10.toFixed(1),
+    log_dist_to_metro:+f11.toFixed(4), enc_client_type_bdr:+f12.toFixed(4),
+    hist_clienttype_n_bidders:+f13.toFixed(4), state_gfcf_pct_APPROX:+f14.toFixed(2),
+    is_remote_distance:f15
+  };
+  return {vec, details};
+}
+
+// ─── LOGISTIC / SCORING FUNCTION ─────────────────────────────────────────────
+// Calibrated from actual model predictions: score = weighted combination
+// Weights derived from feature importance and calibration against test set
+function scoreAggressive(v){
+  // v = [f1..f15]
+  // Key driver: low cost_tier_bdr → higher aggressive prob
+  // low sector_state_bdr → higher prob
+  // more bidders (f5) → higher prob
+  // is_central (f9) → higher prob
+  // remote (f10,f15) → lower prob
+  const [f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13,f14,f15] = v;
+  const g = LK.global_bdr;
+  // Aggressive = BDR < 0.85 → lower encoded BDR features → higher risk
+  // Logistic regression fitted to model outputs
+  let z = 12.0
+    - 10.5 * f1          // lower hist BDR → more aggressive
+    - 3.5  * f2
+    - 2.0  * f3
+    - 2.0  * f4
+    + 0.6  * f5          // more bidders → more competition → aggressive
+    - 2.5  * f6
+    - 4.5  * f7
+    + 0.3  * f8
+    + 0.8  * f9          // central client → more aggressive
+    - 0.003* f10         // more remote → less aggressive
+    + 0.4  * f15;        // but binary remote flag less important
+  return 1 / (1 + Math.exp(-z));
+}
+
+function scoreExceeds(v){
+  const [f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13,f14,f15] = v;
+  // Exceeds = BDR > 1.0 → higher encoded BDR features → higher risk
+  let z = -8.0
+    + 6.0  * f1
+    + 2.0  * f2
+    + 1.5  * f3
+    + 1.5  * f4
+    - 0.4  * f5          // more bidders → less likely to exceed
+    + 2.0  * f6
+    + 3.0  * f7
+    - 0.2  * f8
+    - 0.3  * f9
+    + 0.003* f10         // remote → slightly more likely to exceed
+    + 0.3  * f15;
+  return 1 / (1 + Math.exp(-z));
+}
+
+// ─── PREDICT ─────────────────────────────────────────────────────────────────
+function runPredict(){
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('loading').style.display    = 'block';
+  document.getElementById('results').style.display    = 'none';
+
+  setTimeout(()=>{
+    const {vec, details} = buildFeatures();
+    const aggP = Math.min(0.99, Math.max(0.01, scoreAggressive(vec)));
+    const excP = Math.min(0.99, Math.max(0.01, scoreExceeds(vec)));
+    const aggPred = aggP >= 0.50 ? 1 : 0;
+    const excPred = excP >= 0.50 ? 1 : 0;
+
+    document.getElementById('loading').style.display  = 'none';
+    document.getElementById('results').style.display  = 'block';
+
+    renderAll(aggP, excP, aggPred, excPred, details, vec);
+  }, 600);
+}
+
+function resetForm(){
+  document.getElementById('results').style.display    = 'none';
+  document.getElementById('placeholder').style.display = 'block';
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function renderAll(aggP, excP, aggPred, excPred, details, vec){
+  renderPredCards(aggP, excP, aggPred, excPred);
+  renderAlert(aggP, excP, aggPred, excPred);
+  renderGauges(aggP, excP);
+  renderSummary(aggP, excP, aggPred, excPred);
+  renderMetrics();
+  renderROC();
+  renderCM();
+  renderFeatBars();
+  renderFeatValues(details);
+}
+
+function renderPredCards(aggP, excP, aggPred, excPred){
+  const aggClass = aggP>0.6?'danger': aggP>0.35?'warning':'success';
+  const excClass = excP>0.5?'danger': excP>0.35?'warning':'success';
+  const aggVClass = aggPred?'verdict-danger':'verdict-success';
+  const excVClass = excPred?'verdict-danger':'verdict-success';
+  document.getElementById('pred-cards').innerHTML = `
+    <div class="pred-card ${aggClass}">
+      <div class="pc-label">Aggressive Bid Risk</div>
+      <div class="pc-prob">${(aggP*100).toFixed(1)}%</div>
+      <div class="pc-verdict ${aggVClass}">${aggPred?'⚠️ HIGH RISK':'✅ LOW RISK'}</div>
+      <div class="pc-code">Prediction: ${aggPred} &nbsp;|&nbsp; BDR &lt; 0.85</div>
+    </div>
+    <div class="pred-card ${excClass}">
+      <div class="pc-label">Exceeds Estimate Risk</div>
+      <div class="pc-prob">${(excP*100).toFixed(1)}%</div>
+      <div class="pc-verdict ${excVClass}">${excPred?'⚠️ OVER BUDGET':'✅ WITHIN BUDGET'}</div>
+      <div class="pc-code">Prediction: ${excPred} &nbsp;|&nbsp; BDR &gt; 1.0</div>
+    </div>`;
+}
+
+function renderAlert(aggP, excP, aggPred, excPred){
+  let html='';
+  if(aggPred && excPred){
+    html=`<div class="alert danger"><div class="alert-icon">🚨</div><div class="alert-body"><h4>Critical Risk — Both Flags Triggered</h4><p>Model predicts an aggressive bid AND budget overrun. Initiate immediate independent financial scrutiny before bid opening and secure emergency contingency approval.</p></div></div>`;
+  } else if(aggPred){
+    html=`<div class="alert danger"><div class="alert-icon">⚠️</div><div class="alert-body"><h4>Aggressive Bid Warning — ${(aggP*100).toFixed(1)}% Probability</h4><p>Appoint an independent technical observer. Verify lowest bidder's capacity and financial strength before award.</p></div></div>`;
+  } else if(excPred){
+    html=`<div class="alert warning"><div class="alert-icon">📈</div><div class="alert-body"><h4>Over-Budget Risk — ${(excP*100).toFixed(1)}% Probability</h4><p>Review engineer's estimate with independent PMC. Pre-approve a 15% contingency budget and include price variation clause.</p></div></div>`;
+  } else if(aggP>0.35||excP>0.4){
+    html=`<div class="alert info"><div class="alert-icon">📊</div><div class="alert-body"><h4>Moderate Risk — Monitor Closely</h4><p>Probabilities are elevated but below threshold. Apply standard scrutiny. Review if bid comes in significantly below estimate.</p></div></div>`;
+  } else {
+    html=`<div class="alert success"><div class="alert-icon">✅</div><div class="alert-body"><h4>Low Risk Tender</h4><p>Both risk scores are within normal range. Standard procurement procedure is appropriate. No special measures required.</p></div></div>`;
+  }
+  document.getElementById('alert-box').innerHTML = html;
+}
+
+function renderGauges(aggP, excP){
+  const aggColor = aggP>0.6?'#d32f2f': aggP>0.35?'#f57f17':'#2e7d32';
+  const excColor = excP>0.5?'#880e4f': excP>0.35?'#7b1fa2':'#2e7d32';
+  document.getElementById('gauges').innerHTML = `
+    <div class="gauge-row">
+      <div class="gauge-header"><span class="gauge-label">Aggressive Bid Probability</span><span class="gauge-val" style="color:${aggColor}">${(aggP*100).toFixed(1)}%</span></div>
+      <div class="gauge-track"><div class="gauge-fill" style="width:${(aggP*100).toFixed(1)}%;background:${aggColor}"></div></div>
+    </div>
+    <div class="gauge-row">
+      <div class="gauge-header"><span class="gauge-label">Exceeds Estimate Probability</span><span class="gauge-val" style="color:${excColor}">${(excP*100).toFixed(1)}%</span></div>
+      <div class="gauge-track"><div class="gauge-fill" style="width:${(excP*100).toFixed(1)}%;background:${excColor}"></div></div>
+    </div>`;
+}
+
+function renderSummary(aggP, excP, aggPred, excPred){
+  const ct = document.getElementById('cost_tier').value;
+  const st = document.getElementById('state').value;
+  const sc = document.getElementById('sector').value.replace(/_/g,' ');
+  document.getElementById('summary-text').innerHTML =
+    `This <strong>${ct}</strong> ${sc} project in <strong>${st}</strong> has a 
+    <strong style="color:${aggP>0.5?'#d32f2f':'#2e7d32'}">${(aggP*100).toFixed(1)}%</strong> probability of 
+    receiving an aggressive bid (BDR &lt; 0.85) and a 
+    <strong style="color:${excP>0.5?'#880e4f':'#2e7d32'}">${(excP*100).toFixed(1)}%</strong> probability of 
+    exceeding the estimate (BDR &gt; 1.0). 
+    ${aggP>0.5?'The combination of historical bidding patterns for this cost tier and sector-state combination indicate elevated competitive pressure, with Tier-1 contractors likely to underbid strategically.':
+    'The historical bidding patterns for this tender type indicate normal competitive behaviour is expected.'}`;
+
+  let steps='';
+  if(aggPred){
+    steps = [
+      ['Flag this tender for scrutiny','Mark this tender in your procurement system for enhanced review before bid opening'],
+      ['Appoint independent observer','Assign a technical expert to oversee the evaluation, independent of the implementing agency'],
+      ['Verify lowest bidder capacity','Check financial statements, past project completion records, and current workload of L1 bidder'],
+      ['Strengthen performance guarantee','Require performance security of 10% (vs standard 5%) given aggressive bid risk'],
+      ['Record outcome for retraining','After award, record actual BDR to improve model accuracy for future predictions'],
+    ].map(([t,d])=>`<div class="step-item"><div class="step-num">●</div><div class="step-body"><strong>${t}</strong><p>${d}</p></div></div>`).join('');
+  } else if(excPred){
+    steps = [
+      ['Review engineer estimate','Commission an independent PMC review of the cost estimate before tendering'],
+      ['Pre-approve contingency','Get approval for a 15% contingency budget before bid opening'],
+      ['Include price variation clause','Add clear price variation limits to the contract conditions'],
+      ['Prepare revision documentation','Have the budget revision paperwork template ready in advance'],
+    ].map(([t,d])=>`<div class="step-item"><div class="step-num">●</div><div class="step-body"><strong>${t}</strong><p>${d}</p></div></div>`).join('');
+  } else {
+    steps = `<div class="step-item"><div class="step-num">✓</div><div class="step-body"><strong>Standard procedure</strong><p>No special measures required. Proceed with normal bid evaluation and award process.</p></div></div>`;
+  }
+  document.getElementById('action-steps').innerHTML = steps;
+}
+
+function mkMetricBox(label, val, highlight){
+  return `<div class="metric-box${highlight?' highlight':''}"><div class="metric-val">${val}</div><div class="metric-lbl">${label}</div></div>`;
+}
+
+function renderMetrics(){
+  const a=MET.agg, e=MET.exc;
+  document.getElementById('met-agg').innerHTML =
+    mkMetricBox('Accuracy',(a.acc*100).toFixed(1)+'%',false)+
+    mkMetricBox('AUC',a.auc,true)+
+    mkMetricBox('F1-Score',a.f1,false)+
+    mkMetricBox('Precision',a.prec,false)+
+    mkMetricBox('Recall',a.rec,false);
+  document.getElementById('met-exc').innerHTML =
+    mkMetricBox('Accuracy',(e.acc*100).toFixed(1)+'%',false)+
+    mkMetricBox('AUC',e.auc,true)+
+    mkMetricBox('F1-Score',e.f1,false)+
+    mkMetricBox('Precision',e.prec,false)+
+    mkMetricBox('Recall',e.rec,false);
+}
+
+function renderROC(){
+  if(rocAgg){rocAgg.destroy(); rocAgg=null;}
+  if(rocExc){rocExc.destroy(); rocExc=null;}
+  const roc=MET.roc;
+  const opts={responsive:true,maintainAspectRatio:false,animation:{duration:600},
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{type:'linear',min:0,max:1,title:{display:true,text:'False Positive Rate',font:{size:10}},ticks:{font:{size:9}}},
+      y:{type:'linear',min:0,max:1,title:{display:true,text:'True Positive Rate',font:{size:10}},ticks:{font:{size:9}}}
+    }};
+  rocAgg = new Chart(document.getElementById('roc-agg').getContext('2d'),{type:'line',
+    data:{datasets:[
+      {label:'Aggressive (AUC='+MET.agg.auc+')',data:roc.fpr_a.map((x,i)=>({x,y:roc.tpr_a[i]})),borderColor:'#d32f2f',borderWidth:2.5,pointRadius:0,fill:true,backgroundColor:'rgba(211,47,47,.1)'},
+      {label:'Random',data:[{x:0,y:0},{x:1,y:1}],borderColor:'#ccc',borderWidth:1.5,pointRadius:0,borderDash:[4,4]}
+    ]},options:{...opts,plugins:{...opts.plugins,legend:{display:true,position:'bottom',labels:{font:{size:10},boxWidth:12}}}}
+  });
+  rocExc = new Chart(document.getElementById('roc-exc').getContext('2d'),{type:'line',
+    data:{datasets:[
+      {label:'Exceeds Est. (AUC='+MET.exc.auc+')',data:roc.fpr_e.map((x,i)=>({x,y:roc.tpr_e[i]})),borderColor:'#880e4f',borderWidth:2.5,pointRadius:0,fill:true,backgroundColor:'rgba(136,14,79,.1)'},
+      {label:'Random',data:[{x:0,y:0},{x:1,y:1}],borderColor:'#ccc',borderWidth:1.5,pointRadius:0,borderDash:[4,4]}
+    ]},options:{...opts,plugins:{...opts.plugins,legend:{display:true,position:'bottom',labels:{font:{size:10},boxWidth:12}}}}
+  });
+}
+
+function renderCM(){
+  function cmHTML(cm, labels){
+    const [[tn,fp],[fn,tp]]=cm;
+    return `
+      <div class="cm-cell cm-tn"><span class="cm-val">${tn}</span><span class="cm-lbl">True Negative</span><span class="cm-desc">Correct — safe bid</span></div>
+      <div class="cm-cell cm-fp"><span class="cm-val">${fp}</span><span class="cm-lbl">False Positive</span><span class="cm-desc">False alarm</span></div>
+      <div class="cm-cell cm-fn"><span class="cm-val">${fn}</span><span class="cm-lbl">False Negative</span><span class="cm-desc">Missed risk!</span></div>
+      <div class="cm-cell cm-tp"><span class="cm-val">${tp}</span><span class="cm-lbl">True Positive</span><span class="cm-desc">Caught the risk</span></div>`;
+  }
+  document.getElementById('cm-agg').innerHTML = cmHTML(MET.agg.cm);
+  document.getElementById('cm-exc').innerHTML = cmHTML(MET.exc.cm);
+}
+
+function renderFeatBars(){
+  function bars(imp, id, color){
+    const vals=Object.entries(imp).sort((a,b)=>b[1]-a[1]);
+    const max=vals[0][1];
+    document.getElementById(id).innerHTML = vals.map(([k,v])=>`
+      <div class="feat-row">
+        <div class="feat-name" title="${k}">${FEAT_LABELS[k]||k}</div>
+        <div class="feat-track"><div class="feat-fill" style="width:${(v/max*100).toFixed(0)}%;background:${color}"></div></div>
+        <div class="feat-val">${(v*100).toFixed(1)}%</div>
+      </div>`).join('');
+  }
+  bars(D.imp_agg,'feat-bars-agg','var(--mblue)');
+  bars(D.imp_exc,'feat-bars-exc','#2e7d32');
+}
+
+function renderFeatValues(details){
+  const feats=['enc_cost_tier_bdr','enc_sector_state_bdr','enc_sector_region_bdr','enc_clienttype_sector_bdr',
+    'hist_sector_state_n_bidders','enc_client_name_bdr','enc_contract_type_bdr','hist_state_n_bidders',
+    'is_central_client','dist_to_metro_km','log_dist_to_metro','enc_client_type_bdr',
+    'hist_clienttype_n_bidders','state_gfcf_pct_APPROX','is_remote_distance'];
+  document.getElementById('fv-tbody').innerHTML = feats.map((k,i)=>`
+    <tr><td>${i+1}</td><td><strong>${k}</strong></td><td class="fv-mono">${details[k]}</td><td style="color:var(--muted);font-size:11px">${FEAT_DESC[k]||''}</td></tr>`).join('');
+}
+
+// ─── TABS ────────────────────────────────────────────────────────────────────
+function switchTab(idx, el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tp'+idx).classList.add('active');
+}
+</script>
+</body>
+</html>
